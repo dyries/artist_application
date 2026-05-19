@@ -15,6 +15,13 @@
 - GitHub 文档必须说明外接 API 配置位置是仓库根目录 `.env.local`，从 `.env.example` 复制，并选择一个 provider block 填入自己的 key、base URL 和模型名。
 - 项目应支持多种外接 API 说明：OpenAI-compatible `/chat/completions` 网关、DeepSeek、OpenAI、Gemini、Claude。真实 key 只能放在本地 `.env.local`，不能提交。
 
+## Deployment Security
+
+- 本地 `localhost` 可以直接运行；部署到非本地主机时，必须通过 `ARTIST_STUDIO_AUTH_USER` + `ARTIST_STUDIO_AUTH_PASSWORD` 或 `ARTIST_STUDIO_API_TOKEN` 保护访问。
+- 手动机会链接必须是公开 `https://` URL。服务端抓取前必须阻止 localhost、私网、link-local、内网 DNS 解析结果，以及重定向到内网的地址。
+- 上传、文本提取、网页抓取和图片 metadata 读取必须有默认资源上限；公开部署时不得取消这些限制。
+- 自动化生成申请包时，只能复制项目允许材料目录里的图片，不能信任外部模型提供的任意本地路径。
+
 ## Review And User Edits
 
 - 默认模式下，生成的申请包、审核稿、DOCX/PDF、表单答案、作品集文字、作品说明、caption、checklist 和邮件草稿都必须先给用户审核。

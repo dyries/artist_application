@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { generatedApplicationsDir } from "./paths";
+import { generatedApplicationsDir, materialsInboxDir, sourceMaterialsDir, worksDir } from "./paths";
 import { writeGeneratedDocuments } from "./documentOutputs";
 import { recordPackageManifest } from "./db";
 import type { Application, Opportunity } from "@/types/domain";
@@ -133,8 +133,18 @@ function copySelectedImages(folder: string, selectedWorks: string) {
     .filter((value): value is string => Boolean(value));
 
   for (const imagePath of paths) {
-    if (!fs.existsSync(imagePath)) continue;
+    const safeImagePath = resolveAllowedImagePath(imagePath);
+    if (!safeImagePath) continue;
     fs.mkdirSync(imageDir, { recursive: true });
-    fs.copyFileSync(imagePath, path.join(imageDir, path.basename(imagePath)));
+    fs.copyFileSync(safeImagePath, path.join(imageDir, path.basename(safeImagePath)));
   }
+}
+
+function resolveAllowedImagePath(imagePath: string) {
+  if (!fs.existsSync(imagePath)) return null;
+  const realImagePath = fs.realpathSync(imagePath);
+  const allowedRoots = [worksDir, sourceMaterialsDir, materialsInboxDir].map((dir) => fs.realpathSync(dir));
+  return allowedRoots.some((root) => realImagePath === root || realImagePath.startsWith(`${root}${path.sep}`))
+    ? realImagePath
+    : null;
 }

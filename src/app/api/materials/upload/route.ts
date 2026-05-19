@@ -5,6 +5,7 @@ import { mapWithConcurrency } from "@/lib/concurrency";
 import {
   maxUploadedMaterialBytes,
   maxUploadedMaterialFiles,
+  maxUploadedMaterialRequestBytes,
   saveUploadedMaterial,
   supportedMaterialExtensions
 } from "@/lib/fileMaterials";
@@ -25,6 +26,10 @@ export async function POST(request: Request) {
       if (file.size > maxUploadedMaterialBytes) {
         return NextResponse.json({ error: `File is too large: ${file.name}` }, { status: 413 });
       }
+    }
+    const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+    if (totalSize > maxUploadedMaterialRequestBytes) {
+      return NextResponse.json({ error: "Uploaded files are too large in total." }, { status: 413 });
     }
 
     const materials = await mapWithConcurrency(files, 3, (file) => saveUploadedMaterial(file));

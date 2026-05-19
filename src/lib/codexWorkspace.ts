@@ -46,7 +46,9 @@ export function exportCodexWorkspace() {
       userReviewEditRule:
         "User-facing application packages and review files are editable by the user. If the user edits any review draft, package file, DOCX/PDF, form answer, portfolio text, caption, checklist, or email draft, Codex automation must treat the edited file as the new source of truth and update downstream final submission files, database records, reports, and archive indexes accordingly. If the final submission language is English but the user edits the Chinese review draft, understand the Chinese edit as the user's content intent and synchronize it into the final English submission draft without inserting Chinese text into the English final file. Do not continue from stale pre-edit drafts.",
       manualOpportunityLinkRule:
-        "The user may manually add exhibition, residency, open call, award, or other application page URLs. Treat these as user-provided unverified opportunities until Codex automation or project automation verifies source URL, deadline, eligibility, fees, funding, required materials, submission method, and risks. Project-internal automation may fetch user-provided pages with external providers such as DeepSeek, OpenAI, Gemini, Claude, or OpenAI-compatible APIs, but must mark pages that require login, captcha, payment, dynamic rendering, or manual verification. Do not apply or submit without user review and explicit confirmation.",
+        "The user may manually add exhibition, residency, open call, award, or other application page URLs. Treat these as user-provided unverified opportunities until Codex automation or project automation verifies source URL, deadline, eligibility, fees, funding, required materials, submission method, and risks. Project-internal automation may fetch public https pages with external providers such as DeepSeek, OpenAI, Gemini, Claude, or OpenAI-compatible APIs, but must not fetch localhost, private network, link-local, internal DNS, or redirected internal targets. Mark pages that require login, captcha, payment, dynamic rendering, or manual verification. Do not apply or submit without user review and explicit confirmation.",
+      deploymentSecurityRule:
+        "Localhost can run without authentication. Any non-local deployment must require ARTIST_STUDIO_AUTH_USER plus ARTIST_STUDIO_AUTH_PASSWORD or ARTIST_STUDIO_API_TOKEN. Uploads, extraction, webpage fetching, image metadata reads, and package asset copying must preserve resource limits and path allowlists.",
       applicantNationalityAndBase:
         "The artist is Chinese / China-based unless the profile says otherwise. Only recommend opportunities that explicitly allow Chinese nationals, China-based artists, international applicants, or applicants from any nationality. Reject or downgrade opportunities limited to another country's residents, citizens, or local artists unless the eligibility text clearly includes China.",
       preferredApplicationRegion:
@@ -150,6 +152,7 @@ Use this workspace as the source of truth for an AI-led artist application workf
 - Treat user-provided links as unverified opportunities until the source page, deadline, eligibility, fees, funding, required materials, submission method, and risks have been checked.
 - Manual links may be processed by Codex automation using Codex/OpenAI models or by the optional project-internal external-model automation using DeepSeek, OpenAI, Gemini, Claude, or OpenAI-compatible providers. Final applications and submissions still require user review and explicit confirmation.
 - Project-internal automation may fetch user-provided opportunity pages and pass source text to the configured model. If fetching fails or the page requires login, captcha, payment, dynamic rendering, or sensitive authorization, flag the risk and ask for Codex/browser or user intervention.
+- Project-internal automation may fetch only public \`https://\` opportunity pages. Do not fetch localhost, private network, link-local, internal DNS, or redirected internal targets.
 - If a manual link requires login, captcha, payment, or sensitive authorization, pause and ask the user to intervene.
 
 ## Inputs
@@ -231,6 +234,8 @@ For high-fit opportunities:
 
 ## Boundaries
 
+- Localhost can run without authentication. Any non-local deployment must require \`ARTIST_STUDIO_AUTH_USER\` plus \`ARTIST_STUDIO_AUTH_PASSWORD\` or \`ARTIST_STUDIO_API_TOKEN\`.
+- Preserve upload, extraction, page-fetch, image metadata, and generated-package asset-copy limits. Do not trust model-provided local paths outside approved project material directories.
 - Follow profile.submissionApprovalMode before sending email or submitting web forms. Payment, account login, captcha, sensitive authorization, unclear eligibility, unclear fees, missing required materials, or irreversible actions still require pausing for user intervention.
 - Prefer adding reports and application packages over overwriting existing user material.
 `,

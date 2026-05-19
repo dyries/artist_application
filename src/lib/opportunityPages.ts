@@ -1,4 +1,5 @@
 import { upsertOpportunity } from "./db";
+import { assertPublicOpportunityUrl } from "./urlSecurity";
 import type { Opportunity } from "@/types/domain";
 
 type PageFetchResult = {
@@ -12,6 +13,8 @@ type PageFetchResult = {
 
 const maxOpportunityPagesPerRun = 12;
 const maxPageTextLength = 12000;
+const maxPageBytes = 1024 * 1024;
+const maxRedirects = 5;
 
 export async function refreshOpportunityPages(opportunities: Opportunity[]) {
   const targets = opportunities
@@ -42,18 +45,13 @@ export async function refreshOpportunityPages(opportunities: Opportunity[]) {
 
 async function fetchOpportunityPage(opportunity: Opportunity): Promise<PageFetchResult> {
   try {
-    const response = await fetch(opportunity.url, {
-      headers: {
-        "User-Agent": "ArtistStudio/0.1 (+project automation)",
-        "Accept": "text/html,application/xhtml+xml,application/xml,text/plain;q=0.9,*/*;q=0.8"
-      },
-      signal: AbortSignal.timeout(15000)
-    });
+    const url = await assertPublicOpportunityUrl(opportunity.url);
+    const response = await fetchPublicPage(url);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
     const contentType = response.headers.get("content-type") || "";
-    const text = await response.text();
+    const text = await readTextWithLimit(response, maxPageBytes);
     const title = extractTitle(text) || opportunity.title || opportunity.url;
     const content = contentType.includes("html") ? htmlToText(text) : text;
     return {
@@ -73,6 +71,57 @@ async function fetchOpportunityPage(opportunity: Opportunity): Promise<PageFetch
       error: error instanceof Error ? error.message : String(error)
     };
   }
+}
+
+async function fetchPublicPage(initialUrl: string) {
+  let url = initialUrl;
+  for (let redirect = 0; redirect <= maxRedirects; redirect += 1) {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "ArtistStudio/0.1 (+project automation)",
+        "Accept": "text/html,application/xhtml+xml,application/xml,text/plain;q=0.9,*/*;q=0.8"
+      },
+      redirect: "manual",
+      signal: AbortSignal.timeout(15000)
+    });
+
+    if (![301, 302, 303, 307, 308].includes(response.status)) {
+      return response;
+    }
+
+    const location = response.headers.get("location");
+    if (!location) throw new Error("Redirect response did not include a location.");
+    url = await assertPublicOpportunityUrl(new URL(location, url).toString());
+  }
+  throw new Error("Opportunity URL redirected too many times.");
+}
+
+async function readTextWithLimit(response: Response, maxBytes: number) {
+  const contentLength = Number(response.headers.get("content-length") || 0);
+  if (contentLength > maxBytes) throw new Error("Opportunity page is too large.");
+  if (!response.body) return response.text();
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      reader.cancel().catch(() => undefined);
+      throw new Error("Opportunity page is too large.");
+    }
+    chunks.push(value);
+  }
+
+  const buffer = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    buffer.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(buffer);
 }
 
 function extractTitle(html: string) {

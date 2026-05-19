@@ -8,8 +8,10 @@ import { resolvePythonPath } from "./runtime";
 import type { MaterialKind, SourceMaterial } from "@/types/domain";
 
 export const maxUploadedMaterialFiles = 20;
-export const maxUploadedMaterialBytes = 150 * 1024 * 1024;
-const maxDeepExtractionBytes = 300 * 1024 * 1024;
+export const maxUploadedMaterialBytes = readMegabyteLimit("ARTIST_STUDIO_MAX_UPLOAD_MB", 50, 1, 150) * 1024 * 1024;
+export const maxUploadedMaterialRequestBytes = readMegabyteLimit("ARTIST_STUDIO_MAX_UPLOAD_TOTAL_MB", 100, 1, 300) * 1024 * 1024;
+const maxDeepExtractionBytes = readMegabyteLimit("ARTIST_STUDIO_MAX_EXTRACTION_MB", 50, 1, 150) * 1024 * 1024;
+const maxImageInputPixels = readNumberLimit("ARTIST_STUDIO_MAX_IMAGE_PIXELS", 100_000_000, 1_000_000, 250_000_000);
 const metadataOnlyImageExtensions = new Set([".psd", ".cr2"]);
 const deepExtractionExtensions = new Set([".pdf", ".doc", ".docx", ".pptx", ".key", ".idml", ".rtf"]);
 export const supportedMaterialExtensions = new Set([
@@ -164,7 +166,7 @@ async function imageSummary(filePath: string, fileName: string) {
 
 async function readImageMetadata(filePath: string): Promise<ImageMetadata> {
   try {
-    return await sharp(filePath, { limitInputPixels: false }).metadata();
+    return await sharp(filePath, { limitInputPixels: maxImageInputPixels }).metadata();
   } catch (error) {
     const info = runCommand("file", [filePath]);
     const sizeMatch = info.match(/(\d+)\s*x\s*(\d+)/i);
@@ -305,6 +307,9 @@ try:
         texts = []
         for name in text_names[:300]:
             try:
+                info = zf.getinfo(name)
+                if info.file_size > 2 * 1024 * 1024:
+                    continue
                 for value in xml_text(zf.read(name), name):
                     add_unique(texts, value)
             except Exception:
@@ -405,4 +410,14 @@ function formatBytes(bytes: number) {
     unit += 1;
   }
   return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function readMegabyteLimit(name: string, fallback: number, min: number, max: number) {
+  return readNumberLimit(name, fallback, min, max);
+}
+
+function readNumberLimit(name: string, fallback: number, min: number, max: number) {
+  const value = Number(process.env[name]);
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(Math.trunc(value), max));
 }

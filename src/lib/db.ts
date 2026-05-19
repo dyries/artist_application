@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import Database from "better-sqlite3";
 import { dataDir, dbPath } from "./paths";
+import { normalizePublicOpportunityUrl } from "./urlSecurity";
 import type {
   ActivityLog,
   ArtistProfile,
@@ -836,10 +837,7 @@ export function upsertOpportunity(input: Partial<Opportunity> & { url: string })
 }
 
 export function addManualOpportunityLink(input: { url: string; title?: string; notes?: string }) {
-  const url = input.url.trim();
-  if (!/^https?:\/\/\S+$/i.test(url)) {
-    throw new Error("Opportunity URL must start with http:// or https://");
-  }
+  const url = normalizePublicOpportunityUrl(input.url);
   upsertOpportunity({
     url,
     title: input.title?.trim() || url,

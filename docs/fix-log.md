@@ -2,6 +2,67 @@
 
 This file records recurring bug fixes, error investigations, optimization passes, and verification results so project maintenance is not only preserved in chat history.
 
+## 2026-05-19 Security hardening for public GitHub/project deployment
+
+### Scope
+
+- Added deployment-time access protection for non-local hosts.
+- Added public URL validation and DNS checks before server-side opportunity page fetching.
+- Tightened material upload, extraction, and image metadata resource limits.
+- Restricted application package image copying to approved project material directories.
+
+### Issues Found
+
+- The project was public on GitHub and needed a security pass before possible non-local use.
+- API routes could read, write, delete, upload, scan, export, and run automation without authentication.
+- User-provided opportunity URLs could be fetched by the server without network target restrictions.
+- Material upload and extraction limits were loose for a public-facing app.
+- Application package generation copied any model-suggested local `Image:` path that existed.
+
+### Root Cause
+
+- The app was originally designed as a localhost workspace and did not enforce deployment-time authentication or SSRF/path allowlists.
+- Upload and parser limits were optimized for local artist materials rather than hostile public input.
+
+### Changes
+
+- Added middleware that allows localhost but requires Basic Auth or bearer token on non-local hosts.
+- Restricted manual opportunity URLs to public `https://` targets and revalidates each redirect before fetching.
+- Added DNS resolution checks to block localhost, private networks, link-local addresses, and internal IP targets.
+- Added upload request total size limits, lower default extraction limits, bounded page fetch reads, and image pixel limits.
+- Added a path allowlist before copying selected work images into generated packages.
+
+### Files Changed
+
+- `middleware.ts`
+- `.env.example`
+- `README.md`
+- `src/lib/urlSecurity.ts`
+- `src/lib/db.ts`
+- `src/lib/opportunityPages.ts`
+- `src/app/api/materials/upload/route.ts`
+- `src/lib/fileMaterials.ts`
+- `src/lib/package.ts`
+- `docs/rules.md`
+- `src/lib/codexWorkspace.ts`
+- `package.json`
+- `package-lock.json`
+
+### Verification
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm audit --omit=dev
+```
+
+### Remaining Notes
+
+- `postcss` is pinned through npm overrides to avoid the unsafe `npm audit fix --force` downgrade path.
+- Public deployments should set strong auth secrets and avoid exposing `.env.local`, SQLite databases, user materials, generated packages, or backups.
+
 ## 2026-05-19 18:08 CST
 
 ### Scope

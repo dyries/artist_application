@@ -141,6 +141,9 @@ npm run backup
 
 ## 安全边界
 
+- 本地 `localhost` 可直接使用；如果把应用部署到公网，必须在环境变量中配置 `ARTIST_STUDIO_AUTH_USER` + `ARTIST_STUDIO_AUTH_PASSWORD`，或配置 `ARTIST_STUDIO_API_TOKEN`。非本地主机没有这些配置时，应用会拒绝访问。
+- 手动机会链接只接受公开 `https://` 地址；项目会阻止 localhost、私网、link-local、内网 DNS 解析结果和重定向到内网的地址。
+- 上传材料有默认资源限制：单文件 50MB、单请求 100MB、深度文本提取 50MB、图片 metadata 读取 100MP。可通过 `.env.local` 中的 `ARTIST_STUDIO_MAX_UPLOAD_MB`、`ARTIST_STUDIO_MAX_UPLOAD_TOTAL_MB`、`ARTIST_STUDIO_MAX_EXTRACTION_MB`、`ARTIST_STUDIO_MAX_IMAGE_PIXELS` 调整。
 - 默认未经用户最终确认，不发送邮件、不提交网页表单、不付款、不处理验证码。
 - 如果使用者把提交审核模式设为“直接申请”，自动化可以在当前批次上跳过逐项审核；但遇到付款、登录、验证码、敏感授权、资格不明、费用不明或材料缺失时必须暂停。
 - 项目代码不保存第三方平台密码；涉及登录、验证码、付款或敏感授权时，需要用户介入。
