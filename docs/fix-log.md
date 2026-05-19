@@ -2,6 +2,63 @@
 
 This file records recurring bug fixes, error investigations, optimization passes, and verification results so project maintenance is not only preserved in chat history.
 
+## 2026-05-19 14:28 CST
+
+### Scope
+
+- Added structured opportunity fee and tier preferences to the local app, project rules, project automation prompt, and Codex automation export.
+- Refreshed the local generated Codex automation snapshot and instructions.
+
+### Issues Found
+
+- Fee acceptance rules existed only as default screening text, so users could not explicitly allow paid exhibitions/residencies or modest application fees.
+- Opportunity level/tier preference was not represented as structured data, so automation could not reliably distinguish high-tier-only, balanced, or open search modes.
+
+### Root Cause
+
+- `artist_profile` stored application region, batch size, and submission approval mode, but not opportunity fee acceptance or opportunity tier preference.
+- Codex and project automation instructions used fixed default cost language instead of reading a user-selected preference from the profile.
+
+### Changes
+
+- Added `opportunityFeePreference` with `conservative`, `application_fee_ok`, and `paid_ok`.
+- Added `opportunityTierPreference` with `high_tier`, `balanced`, and `open`.
+- Added database columns and fallback coercion for existing profiles.
+- Added profile-page selectors and user-facing default labels.
+- Synchronized rules across docs, generated Codex automation instructions, and the project-internal automation prompt.
+
+### Files Changed
+
+- `README.md`
+- `docs/automation.md`
+- `docs/codex-workflow.md`
+- `docs/data-model.md`
+- `docs/fix-log.md`
+- `docs/rules.md`
+- `src/app/components/Studio.tsx`
+- `src/app/components/studioModel.ts`
+- `src/lib/codexWorkspace.ts`
+- `src/lib/db.ts`
+- `src/lib/projectAutomation.ts`
+- `src/lib/schemas.ts`
+- `src/types/domain.ts`
+
+### Verification
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run build
+curl -s -X POST http://localhost:3000/api/codex/context
+```
+
+Browser verification also confirmed the profile page shows the new fee and tier selectors with the expected defaults.
+
+### Remaining Notes
+
+- Generated files under `generated/codex/` are intentionally local outputs and remain ignored by Git.
+
 ## 2026-05-19 13:56 CST
 
 ### Scope

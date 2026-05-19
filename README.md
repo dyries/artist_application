@@ -55,7 +55,7 @@ npm run dev
 - 只用项目内模型：在 `.env.local` 配置 DeepSeek、OpenAI、Gemini、Claude 或兼容 API，在网页内生成报告、核验手动机会链接和生成草稿。
 - Codex + 项目内模型：网页内模型负责快速草稿和初步整理，Codex 负责复杂材料理解、实时搜索、机会核验、申请包制作和用户确认后的投递步骤。
 
-使用者也可以设置每轮最多处理数量，范围是 1-100。提交审核模式可以选择“必须审核后提交”“可跳过审核准备”或“直接申请”。直接申请代表使用者对当前运行批次做了预授权；遇到付款、登录、验证码、敏感授权、资格不明、费用不明或材料缺失时仍必须暂停。
+使用者也可以设置每轮最多处理数量，范围是 1-100。提交审核模式可以选择“必须审核后提交”“可跳过审核准备”或“直接申请”。费用接受度默认保守（免费/强资助优先），也可以改成接受少量申请费或允许付费项目进入候选池但标红风险。机会等级默认高等级优先，也可以改成平衡或更开放。直接申请代表使用者对当前运行批次做了预授权；遇到付款、登录、验证码、敏感授权、资格不明、费用不明或材料缺失时仍必须暂停。
 
 刷新 Codex 上下文的方式：
 
@@ -71,7 +71,7 @@ Users can choose the automation setup that fits their tools and budget:
 - In-app model only: configure DeepSeek, OpenAI, Gemini, Claude, or a compatible API in `.env.local` and use the web app to generate reports, check manually added opportunity links, and draft packages.
 - Codex + in-app model: use the web app model for fast drafts and first-pass organization, then use Codex for complex material interpretation, live research, opportunity verification, package production, and user-confirmed submission steps.
 
-Users can set the maximum number of opportunities per run from 1 to 100. Submission approval mode can be set to review required, review optional, or direct apply. Direct apply is pre-authorization for the current run batch; automation must still pause for payment, login, captcha, sensitive authorization, unclear eligibility, unclear fees, or missing required materials.
+Users can set the maximum number of opportunities per run from 1 to 100. Submission approval mode can be set to review required, review optional, or direct apply. Fee preference defaults to conservative, prioritizing free or strongly funded opportunities, but can be changed to allow modest application fees or paid opportunities with explicit risk labeling. Opportunity tier preference defaults to high-tier first and can be changed to balanced or open. Direct apply is pre-authorization for the current run batch; automation must still pause for payment, login, captcha, sensitive authorization, unclear eligibility, unclear fees, or missing required materials.
 
 ## 长期项目文档
 

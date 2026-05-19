@@ -58,6 +58,8 @@ type ProfileRow = {
   application_region: string;
   automation_batch_limit: number;
   submission_approval_mode: string;
+  opportunity_fee_preference: string;
+  opportunity_tier_preference: string;
   updated_at: string;
 };
 
@@ -210,6 +212,8 @@ function migrate(database: Database.Database) {
       application_region TEXT NOT NULL DEFAULT 'worldwide',
       automation_batch_limit INTEGER NOT NULL DEFAULT 5,
       submission_approval_mode TEXT NOT NULL DEFAULT 'review_required',
+      opportunity_fee_preference TEXT NOT NULL DEFAULT 'conservative',
+      opportunity_tier_preference TEXT NOT NULL DEFAULT 'high_tier',
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -324,6 +328,8 @@ function migrate(database: Database.Database) {
   addColumn(database, "artist_profile", "application_region", "TEXT NOT NULL DEFAULT 'worldwide'");
   addColumn(database, "artist_profile", "automation_batch_limit", "INTEGER NOT NULL DEFAULT 5");
   addColumn(database, "artist_profile", "submission_approval_mode", "TEXT NOT NULL DEFAULT 'review_required'");
+  addColumn(database, "artist_profile", "opportunity_fee_preference", "TEXT NOT NULL DEFAULT 'conservative'");
+  addColumn(database, "artist_profile", "opportunity_tier_preference", "TEXT NOT NULL DEFAULT 'high_tier'");
   addColumn(database, "works", "title_zh", "TEXT NOT NULL DEFAULT ''");
   addColumn(database, "works", "title_en", "TEXT NOT NULL DEFAULT ''");
   addColumn(database, "works", "medium_zh", "TEXT NOT NULL DEFAULT ''");
@@ -410,6 +416,8 @@ const opportunityStatuses = new Set<OpportunityStatus>([
 ]);
 const submissionMethods = new Set<SubmissionMethod>(["email", "web_form", "unknown"]);
 const submissionApprovalModes = new Set<SubmissionApprovalMode>(["review_required", "review_optional", "direct_apply"]);
+const opportunityFeePreferences = new Set(["conservative", "application_fee_ok", "paid_ok"]);
+const opportunityTierPreferences = new Set(["high_tier", "balanced", "open"]);
 
 function coerceMaterialKind(value: string): MaterialKind {
   return materialKinds.has(value as MaterialKind) ? (value as MaterialKind) : "other";
@@ -427,6 +435,14 @@ function coerceSubmissionApprovalMode(value: string): SubmissionApprovalMode {
   return submissionApprovalModes.has(value as SubmissionApprovalMode)
     ? (value as SubmissionApprovalMode)
     : "review_required";
+}
+
+function coerceOpportunityFeePreference(value: string): ArtistProfile["opportunityFeePreference"] {
+  return opportunityFeePreferences.has(value) ? (value as ArtistProfile["opportunityFeePreference"]) : "conservative";
+}
+
+function coerceOpportunityTierPreference(value: string): ArtistProfile["opportunityTierPreference"] {
+  return opportunityTierPreferences.has(value) ? (value as ArtistProfile["opportunityTierPreference"]) : "high_tier";
 }
 
 const mapProfile = (row: ProfileRow): ArtistProfile => ({
@@ -454,6 +470,8 @@ const mapProfile = (row: ProfileRow): ArtistProfile => ({
   applicationRegion: row.application_region || "worldwide",
   automationBatchLimit: Math.max(1, Math.min(100, Number(row.automation_batch_limit) || 5)),
   submissionApprovalMode: coerceSubmissionApprovalMode(row.submission_approval_mode),
+  opportunityFeePreference: coerceOpportunityFeePreference(row.opportunity_fee_preference),
+  opportunityTierPreference: coerceOpportunityTierPreference(row.opportunity_tier_preference),
   updatedAt: row.updated_at
 });
 
@@ -662,6 +680,8 @@ export function saveArtistData(payload: ArtistPayload) {
         application_region=@applicationRegion,
         automation_batch_limit=@automationBatchLimit,
         submission_approval_mode=@submissionApprovalMode,
+        opportunity_fee_preference=@opportunityFeePreference,
+        opportunity_tier_preference=@opportunityTierPreference,
         updated_at=CURRENT_TIMESTAMP
       WHERE id=1
     `).run(payload.profile);

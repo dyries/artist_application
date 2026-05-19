@@ -26,6 +26,8 @@ export const artistPayloadSchema = z.object({
     applicationRegion: z.string().default("worldwide"),
     automationBatchLimit: z.number().int().min(1).max(100).default(5),
     submissionApprovalMode: z.enum(["review_required", "review_optional", "direct_apply"]).default("review_required"),
+    opportunityFeePreference: z.enum(["conservative", "application_fee_ok", "paid_ok"]).default("conservative"),
+    opportunityTierPreference: z.enum(["high_tier", "balanced", "open"]).default("high_tier"),
     updatedAt: z.string().default("")
   }),
   works: z.array(z.object({

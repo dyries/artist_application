@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ArtistProfile, CvEntry, MaterialKind, SourceMaterial, SubmissionApprovalMode, Work } from "@/types/domain";
+import type {
+  ArtistProfile,
+  CvEntry,
+  MaterialKind,
+  OpportunityFeePreference,
+  OpportunityTierPreference,
+  SourceMaterial,
+  SubmissionApprovalMode,
+  Work
+} from "@/types/domain";
 import { Area, Field, NumberField, SelectField } from "./FormControls";
 import { StudioHeader, StudioSidebar } from "./StudioChrome";
 import { api } from "./studioApi";
@@ -13,6 +22,10 @@ import {
   initialData,
   materialKindLabel,
   materialKindMeta,
+  opportunityFeePreferenceLabel,
+  opportunityFeePreferenceOptions,
+  opportunityTierPreferenceLabel,
+  opportunityTierPreferenceOptions,
   prepareSavePayload,
   submissionApprovalModeLabel,
   submissionApprovalModeOptions
@@ -42,6 +55,8 @@ export default function Studio() {
       data.profile.applicationRegion || "worldwide",
       String(data.profile.automationBatchLimit || 5),
       data.profile.submissionApprovalMode || "review_required",
+      data.profile.opportunityFeePreference || "conservative",
+      data.profile.opportunityTierPreference || "high_tier",
       data.profile.preferencesZh || data.profile.preferencesEn || data.profile.preferences
     ];
     const filled = fields.filter((value) => value.trim().length > 0).length;
@@ -394,12 +409,25 @@ export default function Studio() {
                   onChange={(value) => setProfile("submissionApprovalMode", value as SubmissionApprovalMode)}
                   options={submissionApprovalModeOptions}
                 />
+                <SelectField
+                  label="费用接受度"
+                  value={data.profile.opportunityFeePreference || "conservative"}
+                  onChange={(value) => setProfile("opportunityFeePreference", value as OpportunityFeePreference)}
+                  options={opportunityFeePreferenceOptions}
+                />
+                <SelectField
+                  label="机会等级偏好"
+                  value={data.profile.opportunityTierPreference || "high_tier"}
+                  onChange={(value) => setProfile("opportunityTierPreference", value as OpportunityTierPreference)}
+                  options={opportunityTierPreferenceOptions}
+                />
                 <Field label="网站" value={data.profile.website} onChange={(value) => setProfile("website", value)} />
                 <Field label="Instagram" value={data.profile.instagram} onChange={(value) => setProfile("instagram", value)} />
               </div>
               <p className="notice">
                 当前申请地区：{applicationRegionLabel(data.profile.applicationRegion)}；每轮最多处理 {data.profile.automationBatchLimit || 5} 个机会；
-                审核模式：{submissionApprovalModeLabel(data.profile.submissionApprovalMode)}。
+                审核模式：{submissionApprovalModeLabel(data.profile.submissionApprovalMode)}；费用接受度：{opportunityFeePreferenceLabel(data.profile.opportunityFeePreference)}；
+                机会等级：{opportunityTierPreferenceLabel(data.profile.opportunityTierPreference)}。
               </p>
               <div className="grid-2">
                 <Area label="中文 Artist Statement" value={data.profile.statementZh} onChange={(value) => setProfile("statementZh", value)} />
@@ -660,6 +688,8 @@ export default function Studio() {
                   <li>机会必须确认中国人、中国所在地艺术家或国际申请者可申请。</li>
                   <li>申请地区默认全世界，可在艺术家资料里改成亚洲、欧洲、北美等范围；搜索和排序必须按这个地区偏好执行。</li>
                   <li>每轮处理数量按“每轮最多处理数量”执行，最多可设为 100。</li>
+                  <li>费用接受度默认保守：优先免费或强资助；可改成接受少量申请费，或允许付费项目但必须标红风险。</li>
+                  <li>机会等级默认高等级优先；可改成高等级 + 中等级，或更开放地包含小机构和实验项目。</li>
                   <li>审核模式可选择必须审核、可跳过审核准备或直接申请；直接申请仍必须在付款、登录、验证码、敏感授权、资格不明时停下来。</li>
                   <li>审核材料默认中英对照；最终提交文件只按对方要求的语言制作。</li>
                   <li>作品集要认真选作品，先完整呈现作品本体，再按需要补充现场或细节图，并做专业排版；真实作品展览先确认作品是否还在手里。</li>

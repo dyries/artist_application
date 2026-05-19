@@ -10,6 +10,8 @@ export type OpportunityStatus =
 
 export type SubmissionMethod = "email" | "web_form" | "unknown";
 export type SubmissionApprovalMode = "review_required" | "review_optional" | "direct_apply";
+export type OpportunityFeePreference = "conservative" | "application_fee_ok" | "paid_ok";
+export type OpportunityTierPreference = "high_tier" | "balanced" | "open";
 
 export type ArtistProfile = {
   id: number;
@@ -36,6 +38,8 @@ export type ArtistProfile = {
   applicationRegion: string;
   automationBatchLimit: number;
   submissionApprovalMode: SubmissionApprovalMode;
+  opportunityFeePreference: OpportunityFeePreference;
+  opportunityTierPreference: OpportunityTierPreference;
   updatedAt: string;
 };
 

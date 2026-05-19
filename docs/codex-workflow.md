@@ -40,6 +40,8 @@ generated/codex/automation-instructions.md
 - 使用者可以把每轮最多处理数量设为 1-100。
 - 提交审核模式可以设为必须审核、可跳过审核准备或直接申请。
 - 直接申请代表使用者对当前运行批次做了预授权；但付款、登录、验证码、敏感授权、资格不明、费用不明、材料缺失或不可逆操作仍必须暂停。
+- 自动化必须遵守 `profile.opportunityFeePreference`：默认 `conservative`，优先免费或强资助；`application_fee_ok` 可接受少量申请费；`paid_ok` 可把付费展览/驻留放入候选池，但必须清楚标注费用和风险，付款前仍必须暂停确认。
+- 自动化必须遵守 `profile.opportunityTierPreference`：默认 `high_tier`，高等级机构优先；`balanced` 可包含可信中等级机会；`open` 可包含小机构、新空间和实验项目，但要明确标注可信度风险。
 - 真实材料、数据库、生成申请包、最终提交文件和 API key 都不应提交到 Git。
 
 ## English
@@ -82,4 +84,6 @@ generated/codex/automation-instructions.md
 - Users can set the maximum number of opportunities per run from 1 to 100.
 - Submission approval mode can be review required, review optional, or direct apply.
 - Direct apply is pre-authorization for the current run batch; automation must still pause for payment, login, captcha, sensitive authorization, unclear eligibility, unclear fees, missing required materials, or irreversible actions.
+- Automation must follow `profile.opportunityFeePreference`: `conservative` is the default, `application_fee_ok` permits modest application fees, and `paid_ok` may include paid exhibitions or residencies only with clear cost and risk labeling. Payment still requires confirmation.
+- Automation must follow `profile.opportunityTierPreference`: `high_tier` is the default, `balanced` includes credible mid-tier opportunities, and `open` may include small spaces, new organizations, and experimental projects with credibility risks labeled.
 - Real materials, databases, generated packages, final submission files, and API keys should not be committed to Git.

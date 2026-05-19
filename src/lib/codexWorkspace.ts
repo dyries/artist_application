@@ -57,10 +57,18 @@ export function exportCodexWorkspace() {
         data.profile.automationBatchLimit || 5,
       submissionApprovalMode:
         data.profile.submissionApprovalMode || "review_required",
+      opportunityFeePreference:
+        data.profile.opportunityFeePreference || "conservative",
+      opportunityTierPreference:
+        data.profile.opportunityTierPreference || "high_tier",
       automationBatchRule:
         "The user may choose how many opportunities to process in one run, from 1 to 100. Use profile.automationBatchLimit as the maximum number of opportunities to deeply process or prepare in a run unless the user gives a newer instruction.",
       submissionApprovalModeRule:
         "The user may choose review_required, review_optional, or direct_apply. review_required means every package must be reviewed before submission. review_optional means automation may prepare final files without a separate review package when requirements are clear, but should still ask before external submission. direct_apply means the user pre-authorizes submission for the current run up to the configured batch limit, but automation must still stop for payment, account login, captcha, sensitive authorization, unclear eligibility, unclear fees, missing required materials, or irreversible actions.",
+      opportunityFeePreferenceRule:
+        "Use profile.opportunityFeePreference as a binding screening and ranking preference. conservative is the default: prefer free or strongly funded opportunities, allow reasonable exhibition application fees, reject pay-to-show economics, and downgrade residencies with lodging/program/high participation fees. application_fee_ok allows modest application fees but still rejects booth, wall, venue, mandatory production, lodging, or high participation fees unless there is exceptional artistic fit. paid_ok allows paid exhibitions or residencies to be considered, but all payment, fee amount, and value risks must be highlighted clearly and user confirmation is required before any payment.",
+      opportunityTierPreferenceRule:
+        "Use profile.opportunityTierPreference as a binding credibility and ambition preference. high_tier is the default: prioritize museums, universities, foundations, respected residencies, credible nonprofits, and serious open calls. balanced includes high-tier and credible mid-tier opportunities. open also considers small spaces, new organizations, and experimental projects, while scoring credibility and risk explicitly.",
       opportunitySelectionRule:
         "Do not merely find five residencies and five exhibitions. Build a larger verified candidate pool first, reject mismatches with clear reasons, then select the best Top 5 residencies and Top 5 exhibitions/open calls for review.",
       reviewBilingualRule:
@@ -111,6 +119,8 @@ Use this workspace as the source of truth for an AI-led artist application workf
 - Default behavior requires explicit user confirmation before submitting forms or sending email. Direct-apply mode pre-authorizes eligible submissions in the current run up to the configured batch limit, but payment, account login, captcha, sensitive authorization, unclear eligibility, unclear fees, missing required materials, or irreversible actions still require pausing for user intervention.
 - Respect \`profile.automationBatchLimit\` as the maximum number of opportunities to deeply process or prepare in one run unless the user gives a newer instruction. The value may range from 1 to 100.
 - Respect \`profile.submissionApprovalMode\`: \`review_required\` requires review before submission; \`review_optional\` allows final-file preparation without a separate review package when requirements are clear; \`direct_apply\` means the user pre-authorizes submission for the current run up to the configured batch limit. Even in \`direct_apply\`, stop for payment, account login, captcha, sensitive authorization, unclear eligibility, unclear fees, missing required materials, or irreversible actions.
+- Respect \`profile.opportunityFeePreference\`: \`conservative\` prefers free or strongly funded opportunities and is the default; \`application_fee_ok\` permits modest application fees while still rejecting exploitative fee structures; \`paid_ok\` permits paid exhibitions/residencies to be considered only when all costs and risks are highlighted and payment is never made without explicit user confirmation.
+- Respect \`profile.opportunityTierPreference\`: \`high_tier\` prioritizes museums, universities, foundations, respected residencies, credible nonprofits, and serious open calls; \`balanced\` includes high-tier and credible mid-tier opportunities; \`open\` also considers small spaces, new organizations, and experimental projects while scoring credibility and risk explicitly.
 
 ## Maintenance Rules
 
@@ -163,10 +173,12 @@ Use this workspace as the source of truth for an AI-led artist application workf
 - Search broadly each run. Use multiple Chinese and English keyword sets, regional sources, institution websites, official open call pages, and artist opportunity platforms. Build a larger verified candidate pool before selecting the final recommendations; do not stop after finding the first five items in either category.
 - Treat the artist as Chinese / China-based unless the profile says otherwise. Confirm eligibility for Chinese nationals, China-based artists, international applicants, or all nationalities before recommending an opportunity. Reject or clearly downgrade opportunities limited to another country's citizens, residents, local artists, or region-specific applicants when China is not included.
 - Rank outputs in two groups: Top 5 residencies and Top 5 exhibitions/open calls. These Top 5 lists must be selected from the broader candidate pool based on eligibility, artistic fit, cost, deadline, credibility, and required materials. If fewer than five qualified opportunities are available in a group, document the searched scope, rejected reasons, and closest fallback candidates.
-- Treat cost coverage as a major filter. Prefer opportunities with no application fee and full cost coverage by the organizer.
-- Exhibitions may have a reasonable application fee, but deprioritize or reject opportunities with booth fees, participation fees, venue/wall fees, mandatory production fees, or pay-to-show economics.
-- Residencies may require the artist to pay airfare/international travel, but lodging, studio/project space, and basic program costs should be covered by the organizer. Prefer residencies with stipend, production budget, per diem, materials support, regional transport, or other funding.
-- Deprioritize or reject residencies that require the artist to pay lodging, program fees, or high participation fees unless the artistic fit is exceptional; clearly flag the cost risk.
+- Apply \`profile.opportunityFeePreference\` as a major filter. Default \`conservative\` mode prefers opportunities with no application fee and full cost coverage by the organizer.
+- In \`conservative\` and \`application_fee_ok\` modes, exhibitions may have a reasonable application fee, but deprioritize or reject opportunities with booth fees, participation fees, venue/wall fees, mandatory production fees, or pay-to-show economics.
+- In \`conservative\` and \`application_fee_ok\` modes, residencies may require the artist to pay airfare/international travel, but lodging, studio/project space, and basic program costs should be covered by the organizer. Prefer residencies with stipend, production budget, per diem, materials support, regional transport, or other funding.
+- In \`conservative\` and \`application_fee_ok\` modes, deprioritize or reject residencies that require the artist to pay lodging, program fees, or high participation fees unless the artistic fit is exceptional; clearly flag the cost risk.
+- In \`paid_ok\` mode, paid exhibitions and paid residencies may enter the candidate pool, but must be labeled as paid, include a full cost breakdown, explain why the opportunity is still worth considering, and pause for explicit user approval before any payment.
+- Apply \`profile.opportunityTierPreference\` when ranking: \`high_tier\` prioritizes established and credible institutions, \`balanced\` includes credible mid-tier opportunities, and \`open\` may include small or experimental organizations with credibility risks clearly scored.
 - Use the artist profile preferences in the snapshot as binding screening criteria when ranking opportunities.
 
 For each candidate:

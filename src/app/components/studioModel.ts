@@ -26,6 +26,8 @@ export const emptyProfile: ArtistProfile = {
   applicationRegion: "worldwide",
   automationBatchLimit: 5,
   submissionApprovalMode: "review_required",
+  opportunityFeePreference: "conservative",
+  opportunityTierPreference: "high_tier",
   updatedAt: ""
 };
 
@@ -103,12 +105,32 @@ export const submissionApprovalModeOptions = [
   { value: "direct_apply", label: "直接申请（高风险）" }
 ];
 
+export const opportunityFeePreferenceOptions = [
+  { value: "conservative", label: "保守：免费/强资助优先" },
+  { value: "application_fee_ok", label: "可接受少量申请费" },
+  { value: "paid_ok", label: "可看付费项目（标红风险）" }
+];
+
+export const opportunityTierPreferenceOptions = [
+  { value: "high_tier", label: "高等级优先" },
+  { value: "balanced", label: "高等级 + 中等级" },
+  { value: "open", label: "更开放：小机构也看" }
+];
+
 export function applicationRegionLabel(value: string) {
   return applicationRegionOptions.find((item) => item.value === value)?.label ?? "全世界";
 }
 
 export function submissionApprovalModeLabel(value: string) {
   return submissionApprovalModeOptions.find((item) => item.value === value)?.label ?? "必须审核后提交";
+}
+
+export function opportunityFeePreferenceLabel(value: string) {
+  return opportunityFeePreferenceOptions.find((item) => item.value === value)?.label ?? "保守：免费/强资助优先";
+}
+
+export function opportunityTierPreferenceLabel(value: string) {
+  return opportunityTierPreferenceOptions.find((item) => item.value === value)?.label ?? "高等级优先";
 }
 
 export function materialKindLabel(kind: MaterialKind) {

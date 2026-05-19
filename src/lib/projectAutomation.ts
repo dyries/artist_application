@@ -195,6 +195,10 @@ function buildAutomationPrompt(data: ReturnType<typeof readArtistData>) {
       selectedApplicationRegionMustGuideSearchAndRanking: true,
       maximumOpportunitiesPerRun: data.profile.automationBatchLimit,
       submissionApprovalMode: data.profile.submissionApprovalMode,
+      opportunityFeePreference: data.profile.opportunityFeePreference,
+      opportunityTierPreference: data.profile.opportunityTierPreference,
+      opportunityFeePreferenceRule: "conservative prefers free or strongly funded opportunities and rejects pay-to-show economics; application_fee_ok allows modest application fees but still rejects booth, wall, venue, mandatory production, lodging, or high participation fees unless explicitly justified; paid_ok allows paid exhibitions/residencies to be considered only when clearly labeled with cost and risk, and payment still requires user confirmation.",
+      opportunityTierPreferenceRule: "high_tier prioritizes museums, universities, foundations, respected residencies, credible nonprofits, and serious open calls; balanced includes high-tier and credible mid-tier opportunities; open also considers small spaces, new organizations, and experimental projects while scoring credibility and risk explicitly.",
       directApplyModeStopsForPaymentLoginCaptchaSensitiveAuthOrUnclearEligibility: true,
       multimodalMaterialsMustUseOriginalContentWhenProviderSupportsIt: true,
       extractedTextAndMetadataAreIndexingAidsOnly: true
