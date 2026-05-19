@@ -2,6 +2,41 @@
 
 This file records recurring bug fixes, error investigations, optimization passes, and verification results so project maintenance is not only preserved in chat history.
 
+## 2026-05-19 Add all-rights-reserved repository license notice
+
+### Scope
+
+- Added an explicit repository license notice before making the GitHub project public.
+
+### Issues Found
+
+- The repository had no `LICENSE` file, which made reuse rights unclear once the project becomes public.
+
+### Root Cause
+
+- The project was initially maintained as a private/local workspace and did not need an explicit public-facing rights statement.
+
+### Changes
+
+- Added `LICENSE` with an all-rights-reserved notice.
+- Added a short license section near the top of `README.md`.
+
+### Files Changed
+
+- `LICENSE`
+- `README.md`
+- `docs/fix-log.md`
+
+### Verification
+
+```bash
+Not run; documentation-only change.
+```
+
+### Remaining Notes
+
+- Public visibility still allows people to view and fork through GitHub UI behavior, but the repository does not grant reuse, redistribution, hosting, commercial use, or derivative-work rights.
+
 ## 2026-05-19 Security hardening for public GitHub/project deployment
 
 ### Scope

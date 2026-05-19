@@ -4,6 +4,10 @@
 
 Artist Application AI Workspace stores artist profiles, source material indexes, opportunity records, application package state, and generated outputs. Interpretation, opportunity verification, application writing, package production, and confirmed submission steps are handled by Codex automation or by the optional in-app model automation path.
 
+## License
+
+All rights reserved. This repository is publicly visible for review, reference, and personal learning only. No permission is granted to copy, modify, distribute, sublicense, sell, commercially use, host, or publish derivative works without written permission from the owner.
+
 ## 运行前提
 
 - Git：用于克隆仓库和版本管理。
