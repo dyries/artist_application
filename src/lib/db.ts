@@ -6,9 +6,13 @@ import type {
   ArtistProfile,
   Application,
   CvEntry,
+  MaterialKind,
   Opportunity,
+  OpportunityStatus,
   PackageManifest,
   SourceMaterial,
+  SubmissionApprovalMode,
+  SubmissionMethod,
   Work
 } from "@/types/domain";
 
@@ -27,6 +31,140 @@ type ArtistPayload = {
   works: Work[];
   cv: CvEntry[];
   materialSources: Pick<SourceMaterial, "id" | "kind" | "title" | "content" | "fileName" | "filePath" | "mimeType">[];
+};
+
+type ProfileRow = {
+  id: number;
+  name: string;
+  name_zh: string;
+  name_en: string;
+  email: string;
+  location: string;
+  location_zh: string;
+  location_en: string;
+  website: string;
+  instagram: string;
+  bio_zh_short: string;
+  bio_zh_medium: string;
+  bio_zh_long: string;
+  bio_en_short: string;
+  bio_en_medium: string;
+  bio_en_long: string;
+  statement_zh: string;
+  statement_en: string;
+  preferences: string;
+  preferences_zh: string;
+  preferences_en: string;
+  application_region: string;
+  automation_batch_limit: number;
+  submission_approval_mode: string;
+  updated_at: string;
+};
+
+type WorkRow = {
+  id: number;
+  title: string;
+  title_zh: string;
+  title_en: string;
+  year: string;
+  medium: string;
+  medium_zh: string;
+  medium_en: string;
+  dimensions: string;
+  dimensions_zh: string;
+  dimensions_en: string;
+  image_path: string;
+  description_zh: string;
+  description_en: string;
+};
+
+type CvRow = {
+  id: number;
+  category: string;
+  category_zh: string;
+  category_en: string;
+  year: string;
+  title: string;
+  title_zh: string;
+  title_en: string;
+  organization: string;
+  organization_zh: string;
+  organization_en: string;
+  location: string;
+  location_zh: string;
+  location_en: string;
+  notes: string;
+  notes_zh: string;
+  notes_en: string;
+};
+
+type SourceMaterialRow = {
+  id: number;
+  kind: string;
+  title: string;
+  content: string;
+  file_name: string;
+  file_path: string;
+  mime_type: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type OpportunityRow = {
+  id: number;
+  title: string;
+  organization: string;
+  url: string;
+  location: string;
+  deadline: string;
+  fee: string;
+  funding: string;
+  eligibility: string;
+  materials: string;
+  submission_method: string;
+  summary: string;
+  score: number | null;
+  risks: string;
+  status: string;
+  source: string;
+  raw_content: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type ApplicationRow = {
+  id: number;
+  opportunity_id: number;
+  draft_zh: string;
+  draft_en: string;
+  checklist: string;
+  selected_works: string;
+  package_path: string;
+  submission_log: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type ActivityLogRow = {
+  id: number;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  summary: string;
+  metadata: string;
+  created_at: string;
+};
+
+type PackageManifestRow = {
+  id: number;
+  application_id: number | null;
+  opportunity_id: number | null;
+  package_path: string;
+  manifest_path: string;
+  manifest_version: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export function getDb() {
@@ -259,7 +397,39 @@ function runMigration(database: Database.Database, version: number, name: string
   tx();
 }
 
-const mapProfile = (row: any): ArtistProfile => ({
+const materialKinds = new Set<MaterialKind>(["cv", "bio", "statement", "works", "portfolio", "other"]);
+const opportunityStatuses = new Set<OpportunityStatus>([
+  "new",
+  "confirmed",
+  "preparing",
+  "ready_to_submit",
+  "submitted",
+  "waiting",
+  "shortlisted",
+  "rejected"
+]);
+const submissionMethods = new Set<SubmissionMethod>(["email", "web_form", "unknown"]);
+const submissionApprovalModes = new Set<SubmissionApprovalMode>(["review_required", "review_optional", "direct_apply"]);
+
+function coerceMaterialKind(value: string): MaterialKind {
+  return materialKinds.has(value as MaterialKind) ? (value as MaterialKind) : "other";
+}
+
+function coerceOpportunityStatus(value: string): OpportunityStatus {
+  return opportunityStatuses.has(value as OpportunityStatus) ? (value as OpportunityStatus) : "new";
+}
+
+function coerceSubmissionMethod(value: string): SubmissionMethod {
+  return submissionMethods.has(value as SubmissionMethod) ? (value as SubmissionMethod) : "unknown";
+}
+
+function coerceSubmissionApprovalMode(value: string): SubmissionApprovalMode {
+  return submissionApprovalModes.has(value as SubmissionApprovalMode)
+    ? (value as SubmissionApprovalMode)
+    : "review_required";
+}
+
+const mapProfile = (row: ProfileRow): ArtistProfile => ({
   id: row.id,
   name: row.name,
   nameZh: row.name_zh || row.name,
@@ -283,13 +453,11 @@ const mapProfile = (row: any): ArtistProfile => ({
   preferencesEn: row.preferences_en || row.preferences,
   applicationRegion: row.application_region || "worldwide",
   automationBatchLimit: Math.max(1, Math.min(100, Number(row.automation_batch_limit) || 5)),
-  submissionApprovalMode: ["review_required", "review_optional", "direct_apply"].includes(row.submission_approval_mode)
-    ? row.submission_approval_mode
-    : "review_required",
+  submissionApprovalMode: coerceSubmissionApprovalMode(row.submission_approval_mode),
   updatedAt: row.updated_at
 });
 
-const mapWork = (row: any): Work => ({
+const mapWork = (row: WorkRow): Work => ({
   id: row.id,
   title: row.title,
   titleZh: row.title_zh || row.title,
@@ -306,7 +474,7 @@ const mapWork = (row: any): Work => ({
   descriptionEn: row.description_en
 });
 
-const mapCv = (row: any): CvEntry => ({
+const mapCv = (row: CvRow): CvEntry => ({
   id: row.id,
   category: row.category,
   categoryZh: row.category_zh || row.category,
@@ -326,9 +494,9 @@ const mapCv = (row: any): CvEntry => ({
   notesEn: row.notes_en || row.notes
 });
 
-const mapSourceMaterial = (row: any): SourceMaterial => ({
+const mapSourceMaterial = (row: SourceMaterialRow): SourceMaterial => ({
   id: row.id,
-  kind: row.kind,
+  kind: coerceMaterialKind(row.kind),
   title: row.title,
   content: row.content,
   fileName: row.file_name,
@@ -338,7 +506,7 @@ const mapSourceMaterial = (row: any): SourceMaterial => ({
   updatedAt: row.updated_at
 });
 
-const mapOpportunity = (row: any): Opportunity => ({
+const mapOpportunity = (row: OpportunityRow): Opportunity => ({
   id: row.id,
   title: row.title,
   organization: row.organization,
@@ -349,18 +517,18 @@ const mapOpportunity = (row: any): Opportunity => ({
   funding: row.funding,
   eligibility: row.eligibility,
   materials: row.materials,
-  submissionMethod: row.submission_method,
+  submissionMethod: coerceSubmissionMethod(row.submission_method),
   summary: row.summary,
   score: row.score,
   risks: row.risks,
-  status: row.status,
+  status: coerceOpportunityStatus(row.status),
   source: row.source,
   rawContent: row.raw_content,
   createdAt: row.created_at,
   updatedAt: row.updated_at
 });
 
-const mapApplication = (row: any): Application => ({
+const mapApplication = (row: ApplicationRow): Application => ({
   id: row.id,
   opportunityId: row.opportunity_id,
   draftZh: row.draft_zh,
@@ -373,7 +541,7 @@ const mapApplication = (row: any): Application => ({
   updatedAt: row.updated_at
 });
 
-const mapActivityLog = (row: any): ActivityLog => ({
+const mapActivityLog = (row: ActivityLogRow): ActivityLog => ({
   id: row.id,
   action: row.action,
   entityType: row.entity_type,
@@ -383,7 +551,7 @@ const mapActivityLog = (row: any): ActivityLog => ({
   createdAt: row.created_at
 });
 
-const mapPackageManifest = (row: any): PackageManifest => ({
+const mapPackageManifest = (row: PackageManifestRow): PackageManifest => ({
   id: row.id,
   applicationId: row.application_id,
   opportunityId: row.opportunity_id,
@@ -410,6 +578,16 @@ function countRows(database: Database.Database, table: string, where = "1=1") {
   return row.count;
 }
 
+function deleteRowsMissingFromPayload(database: Database.Database, table: "works" | "cv_entries", ids: number[]) {
+  const savedIds = ids.filter((id) => Number.isInteger(id) && id > 0);
+  if (savedIds.length === 0) {
+    database.prepare(`DELETE FROM ${table}`).run();
+    return;
+  }
+  const placeholders = savedIds.map(() => "?").join(",");
+  database.prepare(`DELETE FROM ${table} WHERE id NOT IN (${placeholders})`).run(...savedIds);
+}
+
 export function readArtistData(options: ReadArtistDataOptions = {}) {
   const database = getDb();
   const materialLimit = positiveLimit(options.materialLimit, 120, 1000);
@@ -421,37 +599,37 @@ export function readArtistData(options: ReadArtistDataOptions = {}) {
   const opportunityRawSql = opportunityRawContentLimit > 0 ? "substr(raw_content, 1, @opportunityRawContentLimit) AS raw_content" : "'' AS raw_content";
 
   return {
-    profile: mapProfile(database.prepare("SELECT * FROM artist_profile WHERE id = 1").get()),
+    profile: mapProfile(database.prepare("SELECT * FROM artist_profile WHERE id = 1").get() as ProfileRow),
     works: database.prepare(`
       SELECT * FROM works
       WHERE trim(title || title_zh || title_en || year || medium || medium_zh || medium_en || dimensions || dimensions_zh || dimensions_en || image_path || description_zh || description_en) <> ''
       ORDER BY year DESC, id DESC
-    `).all().map(mapWork),
+    `).all().map((row) => mapWork(row as WorkRow)),
     cv: database.prepare(`
       SELECT * FROM cv_entries
       WHERE trim(year || title || title_zh || title_en || organization || organization_zh || organization_en || location || location_zh || location_en || notes || notes_zh || notes_en) <> ''
       ORDER BY year DESC, id DESC
-    `).all().map(mapCv),
+    `).all().map((row) => mapCv(row as CvRow)),
     materialSources: database.prepare(`
       SELECT id, kind, title, ${materialContentSql}, file_name, file_path, mime_type, created_at, updated_at
       FROM material_sources
       WHERE trim(title || content || file_name || file_path) <> ''
       ORDER BY updated_at DESC, id DESC
       LIMIT @materialLimit
-    `).all({ materialLimit, materialContentLimit }).map(mapSourceMaterial),
+    `).all({ materialLimit, materialContentLimit }).map((row) => mapSourceMaterial(row as SourceMaterialRow)),
     opportunities: database.prepare(`
       SELECT id, title, organization, url, location, deadline, fee, funding, eligibility, materials,
         submission_method, summary, score, risks, status, source, ${opportunityRawSql}, created_at, updated_at
       FROM opportunities
       ORDER BY updated_at DESC, id DESC
       LIMIT @opportunityLimit
-    `).all({ opportunityLimit, opportunityRawContentLimit }).map(mapOpportunity),
+    `).all({ opportunityLimit, opportunityRawContentLimit }).map((row) => mapOpportunity(row as OpportunityRow)),
     applications: database.prepare(`
       SELECT *
       FROM applications
       ORDER BY updated_at DESC, id DESC
       LIMIT @applicationLimit
-    `).all({ applicationLimit }).map(mapApplication),
+    `).all({ applicationLimit }).map((row) => mapApplication(row as ApplicationRow)),
     counts: {
       works: countRows(database, "works", "trim(title || title_zh || title_en || year || medium || medium_zh || medium_en || dimensions || dimensions_zh || dimensions_en || image_path || description_zh || description_en) <> ''"),
       cv: countRows(database, "cv_entries", "trim(year || title || title_zh || title_en || organization || organization_zh || organization_en || location || location_zh || location_en || notes || notes_zh || notes_en) <> ''"),
@@ -466,7 +644,7 @@ export function readMaterialFilePaths() {
   return getDb()
     .prepare("SELECT file_path FROM material_sources WHERE file_path <> ''")
     .all()
-    .map((row: any) => row.file_path as string);
+    .map((row) => (row as { file_path: string }).file_path);
 }
 
 export function saveArtistData(payload: ArtistPayload) {
@@ -507,8 +685,10 @@ export function saveArtistData(payload: ArtistPayload) {
     `);
     for (const work of payload.works) {
       if (work.id > 0 && updateWork.run(work).changes > 0) continue;
-      insertWork.run(work);
+      const result = insertWork.run(work);
+      work.id = Number(result.lastInsertRowid);
     }
+    deleteRowsMissingFromPayload(database, "works", payload.works.map((work) => work.id));
 
     const updateCv = database.prepare(`
       UPDATE cv_entries SET category=@category, category_zh=@categoryZh, category_en=@categoryEn,
@@ -532,8 +712,10 @@ export function saveArtistData(payload: ArtistPayload) {
     `);
     for (const entry of payload.cv) {
       if (entry.id > 0 && updateCv.run(entry).changes > 0) continue;
-      insertCv.run(entry);
+      const result = insertCv.run(entry);
+      entry.id = Number(result.lastInsertRowid);
     }
+    deleteRowsMissingFromPayload(database, "cv_entries", payload.cv.map((entry) => entry.id));
 
     const updateSource = database.prepare(`
       UPDATE material_sources SET kind=@kind, title=@title, content=@content, file_name=@fileName,
@@ -657,17 +839,17 @@ export function addManualOpportunityLink(input: { url: string; title?: string; n
 
 export function getOpportunity(id: number) {
   const row = getDb().prepare("SELECT * FROM opportunities WHERE id = ?").get(id);
-  return row ? mapOpportunity(row) : null;
+  return row ? mapOpportunity(row as OpportunityRow) : null;
 }
 
 export function getApplication(id: number) {
   const row = getDb().prepare("SELECT * FROM applications WHERE id = ?").get(id);
-  return row ? mapApplication(row) : null;
+  return row ? mapApplication(row as ApplicationRow) : null;
 }
 
 export function getApplicationByOpportunity(opportunityId: number) {
   const row = getDb().prepare("SELECT * FROM applications WHERE opportunity_id = ? ORDER BY updated_at DESC LIMIT 1").get(opportunityId);
-  return row ? mapApplication(row) : null;
+  return row ? mapApplication(row as ApplicationRow) : null;
 }
 
 export function createApplication(input: Omit<Application, "id" | "createdAt" | "updatedAt">) {
@@ -710,7 +892,7 @@ export function readActivityLog(limit = 100) {
   return getDb()
     .prepare("SELECT * FROM activity_log ORDER BY created_at DESC, id DESC LIMIT ?")
     .all(positiveLimit(limit, 100, 1000))
-    .map(mapActivityLog);
+    .map((row) => mapActivityLog(row as ActivityLogRow));
 }
 
 export function recordPackageManifest(input: {
@@ -755,5 +937,5 @@ export function readPackageManifests(limit = 100) {
   return getDb()
     .prepare("SELECT * FROM package_manifests ORDER BY updated_at DESC, id DESC LIMIT ?")
     .all(positiveLimit(limit, 100, 1000))
-    .map(mapPackageManifest);
+    .map((row) => mapPackageManifest(row as PackageManifestRow));
 }

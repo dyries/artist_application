@@ -49,8 +49,8 @@ export default function Studio() {
   }, [data.profile]);
 
   const materialCounts = useMemo(() => {
-    return materialKindMeta.reduce<Record<MaterialKind, number>>((counts, item) => {
-      counts[item.kind] = data.materialSources.filter((source) => source.kind === item.kind).length;
+    return data.materialSources.reduce<Record<MaterialKind, number>>((counts, source) => {
+      counts[source.kind] += 1;
       return counts;
     }, { cv: 0, bio: 0, statement: 0, works: 0, portfolio: 0, other: 0 });
   }, [data.materialSources]);

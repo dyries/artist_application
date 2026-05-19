@@ -9,6 +9,7 @@ const requiredFiles = [
   "docs/rules.md",
   "docs/automation.md",
   "docs/data-model.md",
+  "docs/fix-log.md",
   "docs/status-lifecycle.md",
   "docs/maintenance.md",
   "src/lib/db.ts",

@@ -8,6 +8,7 @@
 - 只提交代码、文档、配置、目录占位文件和可公开示例。
 - 不提交真实材料、数据库、生成申请包、最终提交文件、备份、`.env.local` 或第三方平台凭据。
 - 每次规则变化都要同时更新 `docs/` 和 Codex 自动化说明模板。
+- 每次报错排查、bug 修复、优化或验证结果都要记录到 `docs/fix-log.md`，至少包含时间、问题、根因、修改文件、验证命令和剩余风险。
 - 每次修改完成后都要同步本地项目、Codex 自动化说明模板和 GitHub 远端仓库；推送后确认远端 `main` 指向最新提交。
 
 ## Validation
@@ -42,6 +43,7 @@ npm run backup
 
 - `.gitignore` 仍然排除私人材料和生成结果。
 - `docs/rules.md`、`docs/automation.md` 和生成的 `generated/codex/automation-instructions.md` 没有规则冲突。
+- `docs/fix-log.md` 已记录本次报错、修复、优化和验证结果。
 - 数据库结构变化已写入迁移。
 - 新申请包会写 `package-manifest.json`。
 - 用户可编辑审核文件，最终提交文件与审核文件分开命名。
