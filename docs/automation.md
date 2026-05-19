@@ -9,6 +9,13 @@ Codex 自动化和项目内外部模型自动化是两条独立路径。
 - 项目内外部模型自动化不替代 Codex 自动化，也不允许绕过最终确认。
 - 如果两条路径同时可用，涉及机会真实性、截止日期、费用、资格和最终投递的高风险步骤，以 Codex 自动化的核验和用户确认作为准则。
 
+Codex automation and in-app external-model automation are separate paths.
+
+- Codex automation handles the full workflow: live research, webpage verification, complex file work, application package production, and user-confirmed submission steps.
+- In-app external-model automation reads the API key configured in `.env.local` and can generate reports, check manually added opportunity links, and draft packages inside the web app.
+- In-app external-model automation does not replace Codex automation and cannot bypass final user approval.
+- When both paths are available, high-risk facts such as opportunity authenticity, deadline, fee, eligibility, and final submission readiness should be verified through Codex automation and explicit user confirmation.
+
 ## Codex Workspace Export
 
 点击“刷新 Codex 自动化上下文”后，项目会生成或更新：
@@ -19,6 +26,8 @@ generated/codex/automation-instructions.md
 ```
 
 Codex 自动化必须读取这些文件作为当前项目状态，同时在必要时直接检查原始材料。
+
+Codex automation should read these files as the current workspace state and inspect original source materials whenever excerpts are not enough.
 
 ## Manual Opportunity Links
 
@@ -72,3 +81,5 @@ ARTIST_STUDIO_AI_MODEL=deepseek-chat
 ```
 
 配置后重启 `npm run dev`。
+
+Restart the dev server after changing `.env.local`.

@@ -5,6 +5,7 @@ const root = process.cwd();
 const requiredFiles = [
   ".gitignore",
   "README.md",
+  "docs/codex-workflow.md",
   "docs/rules.md",
   "docs/automation.md",
   "docs/data-model.md",
