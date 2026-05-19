@@ -53,6 +53,14 @@ export function exportCodexWorkspace() {
         data.profile.applicationRegion || "worldwide",
       applicationRegionRule:
         "The user's preferred application region is stored in profile.applicationRegion and defaults to worldwide. Use it as a binding search and ranking preference: worldwide means search globally; any other value means prioritize opportunities physically based in that selected region or explicitly online/no-location opportunities. Do not confuse application region with the artist's current location.",
+      automationBatchLimit:
+        data.profile.automationBatchLimit || 5,
+      submissionApprovalMode:
+        data.profile.submissionApprovalMode || "review_required",
+      automationBatchRule:
+        "The user may choose how many opportunities to process in one run, from 1 to 100. Use profile.automationBatchLimit as the maximum number of opportunities to deeply process or prepare in a run unless the user gives a newer instruction.",
+      submissionApprovalModeRule:
+        "The user may choose review_required, review_optional, or direct_apply. review_required means every package must be reviewed before submission. review_optional means automation may prepare final files without a separate review package when requirements are clear, but should still ask before external submission. direct_apply means the user pre-authorizes submission for the current run up to the configured batch limit, but automation must still stop for payment, account login, captcha, sensitive authorization, unclear eligibility, unclear fees, missing required materials, or irreversible actions.",
       opportunitySelectionRule:
         "Do not merely find five residencies and five exhibitions. Build a larger verified candidate pool first, reject mismatches with clear reasons, then select the best Top 5 residencies and Top 5 exhibitions/open calls for review.",
       reviewBilingualRule:
@@ -100,7 +108,9 @@ Use this workspace as the source of truth for an AI-led artist application workf
 - Project-internal external-model automation uses providers configured in \`.env.local\` when available. It may generate reports, verify manually added opportunity links from fetched source text, and draft packages inside the web app.
 - When both paths are used, project-internal automation can handle fast drafts and first-pass organization while Codex handles higher-risk or more complex verification, material interpretation, file production, and user-confirmed submission steps.
 - Never commit or share API keys.
-- No path may submit forms, send email, pay fees, or handle login/captcha without explicit user confirmation.
+- Default behavior requires explicit user confirmation before submitting forms or sending email. Direct-apply mode pre-authorizes eligible submissions in the current run up to the configured batch limit, but payment, account login, captcha, sensitive authorization, unclear eligibility, unclear fees, missing required materials, or irreversible actions still require pausing for user intervention.
+- Respect \`profile.automationBatchLimit\` as the maximum number of opportunities to deeply process or prepare in one run unless the user gives a newer instruction. The value may range from 1 to 100.
+- Respect \`profile.submissionApprovalMode\`: \`review_required\` requires review before submission; \`review_optional\` allows final-file preparation without a separate review package when requirements are clear; \`direct_apply\` means the user pre-authorizes submission for the current run up to the configured batch limit. Even in \`direct_apply\`, stop for payment, account login, captcha, sensitive authorization, unclear eligibility, unclear fees, missing required materials, or irreversible actions.
 
 ## Maintenance Rules
 
@@ -112,7 +122,9 @@ Use this workspace as the source of truth for an AI-led artist application workf
 
 ## User Review And Edit Rules
 
-- All generated application packages, review drafts, DOCX/PDF files, form answers, portfolio text, work descriptions, captions, checklists, and email drafts must be reviewed by the user before final submission.
+- In \`review_required\` mode, all generated application packages, review drafts, DOCX/PDF files, form answers, portfolio text, work descriptions, captions, checklists, and email drafts must be reviewed by the user before final submission.
+- In \`review_optional\` mode, automation may prepare final files without a separate review package when requirements are clear, but should still ask before external submission.
+- In \`direct_apply\` mode, the user has pre-authorized submission for the current run up to \`profile.automationBatchLimit\`; still stop for payment, account login, captcha, sensitive authorization, unclear eligibility, unclear fees, missing required materials, or irreversible actions.
 - The user may manually edit any review file or application package file. After the user edits a file, that edited file becomes the new source of truth for the next automation step.
 - If the final submission language is English and the user edits the Chinese review draft, treat the Chinese edit as the user's content intent and update the final English submission draft accordingly. Do not place Chinese review text into an English-only final submission file.
 - After user edits, Codex automation must read the edited version and update downstream final submission files, database records, reports, and final archive indexes. Do not continue from stale pre-edit drafts.
@@ -190,7 +202,7 @@ For high-fit opportunities:
 
 ## Review and Submission
 
-- Treat every application package as needing final user approval before submission.
+- Follow \`profile.submissionApprovalMode\` for each application package before submission.
 - Write user-facing review summaries in Chinese by default, grouped as Top 5 residencies and Top 5 exhibitions/open calls, with cost coverage and risks clearly stated.
 - For opportunity review, include bilingual Chinese-English summaries so the user can understand the opportunity and still inspect the English terms that may be used in final materials.
 - Before asking for approval, do a final check for eligibility, deadline, timezone, fees, required files, word limits, file names, image requirements, and missing fields.
@@ -202,7 +214,7 @@ For high-fit opportunities:
 
 ## Boundaries
 
-- Do not send email, submit web forms, pay fees, bypass login, or handle captcha without explicit user confirmation.
+- Follow profile.submissionApprovalMode before sending email or submitting web forms. Payment, account login, captcha, sensitive authorization, unclear eligibility, unclear fees, missing required materials, or irreversible actions still require pausing for user intervention.
 - Prefer adding reports and application packages over overwriting existing user material.
 `,
     "utf8"

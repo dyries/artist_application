@@ -57,7 +57,7 @@ export async function runProjectAutomation() {
   const initialData = readArtistData({
     materialLimit: 80,
     materialContentLimit: 3000,
-    opportunityLimit: 40,
+    opportunityLimit: 120,
     opportunityRawContentLimit: 1500,
     applicationLimit: 20
   });
@@ -65,7 +65,7 @@ export async function runProjectAutomation() {
   const data = readArtistData({
     materialLimit: 80,
     materialContentLimit: 3000,
-    opportunityLimit: 40,
+    opportunityLimit: 120,
     opportunityRawContentLimit: 6000,
     applicationLimit: 20
   });
@@ -193,6 +193,9 @@ function buildAutomationPrompt(data: ReturnType<typeof readArtistData>) {
       externalApiCanDraftButCodexAutomationCanStillVerifyHighRiskFacts: true,
       applicationRegionDefaultsToWorldwide: true,
       selectedApplicationRegionMustGuideSearchAndRanking: true,
+      maximumOpportunitiesPerRun: data.profile.automationBatchLimit,
+      submissionApprovalMode: data.profile.submissionApprovalMode,
+      directApplyModeStopsForPaymentLoginCaptchaSensitiveAuthOrUnclearEligibility: true,
       multimodalMaterialsMustUseOriginalContentWhenProviderSupportsIt: true,
       extractedTextAndMetadataAreIndexingAidsOnly: true
     },

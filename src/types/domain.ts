@@ -9,6 +9,7 @@ export type OpportunityStatus =
   | "rejected";
 
 export type SubmissionMethod = "email" | "web_form" | "unknown";
+export type SubmissionApprovalMode = "review_required" | "review_optional" | "direct_apply";
 
 export type ArtistProfile = {
   id: number;
@@ -33,6 +34,8 @@ export type ArtistProfile = {
   preferencesZh: string;
   preferencesEn: string;
   applicationRegion: string;
+  automationBatchLimit: number;
+  submissionApprovalMode: SubmissionApprovalMode;
   updatedAt: string;
 };
 

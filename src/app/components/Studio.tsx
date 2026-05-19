@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ArtistProfile, CvEntry, MaterialKind, SourceMaterial, Work } from "@/types/domain";
-import { Area, Field, SelectField } from "./FormControls";
+import type { ArtistProfile, CvEntry, MaterialKind, SourceMaterial, SubmissionApprovalMode, Work } from "@/types/domain";
+import { Area, Field, NumberField, SelectField } from "./FormControls";
 import { StudioHeader, StudioSidebar } from "./StudioChrome";
 import { api } from "./studioApi";
 import {
@@ -13,7 +13,9 @@ import {
   initialData,
   materialKindLabel,
   materialKindMeta,
-  prepareSavePayload
+  prepareSavePayload,
+  submissionApprovalModeLabel,
+  submissionApprovalModeOptions
 } from "./studioModel";
 import type { CodexContextResult, ProjectAutomationResult, ScanResult, StudioData, Tab } from "./studioTypes";
 
@@ -38,6 +40,8 @@ export default function Studio() {
       data.profile.bioZhShort || data.profile.bioEnShort,
       data.profile.statementZh || data.profile.statementEn,
       data.profile.applicationRegion || "worldwide",
+      String(data.profile.automationBatchLimit || 5),
+      data.profile.submissionApprovalMode || "review_required",
       data.profile.preferencesZh || data.profile.preferencesEn || data.profile.preferences
     ];
     const filled = fields.filter((value) => value.trim().length > 0).length;
@@ -377,10 +381,26 @@ export default function Studio() {
                   onChange={(value) => setProfile("applicationRegion", value)}
                   options={applicationRegionOptions}
                 />
+                <NumberField
+                  label="每轮最多处理数量"
+                  value={data.profile.automationBatchLimit || 5}
+                  min={1}
+                  max={100}
+                  onChange={(value) => setProfile("automationBatchLimit", value)}
+                />
+                <SelectField
+                  label="提交审核模式"
+                  value={data.profile.submissionApprovalMode || "review_required"}
+                  onChange={(value) => setProfile("submissionApprovalMode", value as SubmissionApprovalMode)}
+                  options={submissionApprovalModeOptions}
+                />
                 <Field label="网站" value={data.profile.website} onChange={(value) => setProfile("website", value)} />
                 <Field label="Instagram" value={data.profile.instagram} onChange={(value) => setProfile("instagram", value)} />
               </div>
-              <p className="notice">当前申请地区：{applicationRegionLabel(data.profile.applicationRegion)}。Codex 搜索机会时会以这个地区范围为优先筛选条件；默认是全世界。</p>
+              <p className="notice">
+                当前申请地区：{applicationRegionLabel(data.profile.applicationRegion)}；每轮最多处理 {data.profile.automationBatchLimit || 5} 个机会；
+                审核模式：{submissionApprovalModeLabel(data.profile.submissionApprovalMode)}。
+              </p>
               <div className="grid-2">
                 <Area label="中文 Artist Statement" value={data.profile.statementZh} onChange={(value) => setProfile("statementZh", value)} />
                 <Area label="English Artist Statement" value={data.profile.statementEn} onChange={(value) => setProfile("statementEn", value)} />
@@ -617,7 +637,7 @@ export default function Studio() {
           {tab === "submissions" && (
             <div className="panel stack">
               <h2>申请包</h2>
-              {data.applications.length === 0 && <p className="muted">Codex 自动化准备出的申请草稿、材料清单和文件路径会显示在这里。给你审核的表单答案、bio、statement、项目文字、作品说明和 checklist 都应提供中英对照；最终提交版只使用对方要求的语言。你最终确认后，Codex 自动化再继续投递。</p>}
+              {data.applications.length === 0 && <p className="muted">Codex 自动化准备出的申请草稿、材料清单和文件路径会显示在这里。需要审核时，表单答案、bio、statement、项目文字、作品说明和 checklist 都应提供中英对照；最终提交版只使用对方要求的语言。后续投递按当前提交审核模式执行。</p>}
               {data.applications.map((app) => (
                 <div className="card stack" key={app.id}>
                   <h3>申请包 #{app.id}</h3>
@@ -633,16 +653,17 @@ export default function Studio() {
           {tab === "settings" && (
             <div className="panel stack">
               <h2>自动化</h2>
-              <p>这个项目本身只保存资料和结果；真正的理解、写作、搜索、制作申请包和确认后投递由 Codex 自动化在这个工作区内完成。上下文文件会把最新优化要求作为执行标准。</p>
+              <p>这个项目保存资料、结果和自动化偏好；使用者可以选择只用 Codex、只用项目内模型，或两者结合。上下文文件会把最新偏好作为执行标准。</p>
               <div className="card stack">
                 <h3>执行标准</h3>
                 <ul className="compact-list">
                   <li>机会必须确认中国人、中国所在地艺术家或国际申请者可申请。</li>
                   <li>申请地区默认全世界，可在艺术家资料里改成亚洲、欧洲、北美等范围；搜索和排序必须按这个地区偏好执行。</li>
-                  <li>每轮先广泛搜索候选池，再各筛选驻留 Top 5 和展览/open call Top 5。</li>
-                  <li>给你审核的申请文字必须中英对照；最终提交文件只按对方要求的语言制作。</li>
+                  <li>每轮处理数量按“每轮最多处理数量”执行，最多可设为 100。</li>
+                  <li>审核模式可选择必须审核、可跳过审核准备或直接申请；直接申请仍必须在付款、登录、验证码、敏感授权、资格不明时停下来。</li>
+                  <li>审核材料默认中英对照；最终提交文件只按对方要求的语言制作。</li>
                   <li>作品集要认真选作品，先完整呈现作品本体，再按需要补充现场或细节图，并做专业排版；真实作品展览先确认作品是否还在手里。</li>
-                  <li>最终确认并投递后，把最终提交版复制到 generated/final-submissions/日期/，写清日期和文件名，再清理草稿。</li>
+                  <li>投递完成后，把最终提交版复制到 generated/final-submissions/日期/，写清日期和文件名，再清理草稿。</li>
                 </ul>
               </div>
               <div className="card stack">
@@ -672,7 +693,7 @@ generated/reports/
 generated/applications/
 generated/final-submissions/`}</pre>
               </div>
-              <p className="notice">未经你确认，不发送邮件、不提交网页表单、不付款、不处理验证码；你确认后，Codex 自动化可以继续执行投递步骤。</p>
+              <p className="notice">默认未经你确认不发送邮件、不提交网页表单、不付款、不处理验证码；直接申请模式可跳过逐项审核，但付款、登录、验证码、敏感授权、资格不明或费用不明仍会暂停。</p>
             </div>
           )}
         </section>

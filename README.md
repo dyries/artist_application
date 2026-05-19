@@ -21,6 +21,8 @@ npm run dev
 - 只用项目内模型：在 `.env.local` 配置 DeepSeek、OpenAI、Gemini、Claude 或兼容 API，在网页内生成报告、核验手动机会链接和生成草稿。
 - Codex + 项目内模型：网页内模型负责快速草稿和初步整理，Codex 负责复杂材料理解、实时搜索、机会核验、申请包制作和用户确认后的投递步骤。
 
+使用者也可以设置每轮最多处理数量，范围是 1-100。提交审核模式可以选择“必须审核后提交”“可跳过审核准备”或“直接申请”。直接申请代表使用者对当前运行批次做了预授权；遇到付款、登录、验证码、敏感授权、资格不明、费用不明或材料缺失时仍必须暂停。
+
 刷新 Codex 上下文的方式：
 
 1. 启动项目并填写或导入资料。
@@ -34,6 +36,8 @@ Users can choose the automation setup that fits their tools and budget:
 - Codex only: open this repository in Codex and ask Codex to read `generated/codex/artist-snapshot.json` and `generated/codex/automation-instructions.md`. This mode does not require external model API keys in the project.
 - In-app model only: configure DeepSeek, OpenAI, Gemini, Claude, or a compatible API in `.env.local` and use the web app to generate reports, check manually added opportunity links, and draft packages.
 - Codex + in-app model: use the web app model for fast drafts and first-pass organization, then use Codex for complex material interpretation, live research, opportunity verification, package production, and user-confirmed submission steps.
+
+Users can set the maximum number of opportunities per run from 1 to 100. Submission approval mode can be set to review required, review optional, or direct apply. Direct apply is pre-authorization for the current run batch; automation must still pause for payment, login, captcha, sensitive authorization, unclear eligibility, unclear fees, or missing required materials.
 
 ## 长期项目文档
 
@@ -103,6 +107,6 @@ npm run backup
 
 ## 安全边界
 
-- 未经用户最终确认，不发送邮件、不提交网页表单、不付款、不处理验证码。
-- 用户确认后，Codex 自动化可以继续执行投递步骤，并记录投递结果。
+- 默认未经用户最终确认，不发送邮件、不提交网页表单、不付款、不处理验证码。
+- 如果使用者把提交审核模式设为“直接申请”，自动化可以在当前批次上跳过逐项审核；但遇到付款、登录、验证码、敏感授权、资格不明、费用不明或材料缺失时必须暂停。
 - 项目代码不保存第三方平台密码；涉及登录、验证码、付款或敏感授权时，需要用户介入。

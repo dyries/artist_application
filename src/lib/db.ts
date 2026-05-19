@@ -70,6 +70,8 @@ function migrate(database: Database.Database) {
       preferences_zh TEXT NOT NULL DEFAULT '',
       preferences_en TEXT NOT NULL DEFAULT '',
       application_region TEXT NOT NULL DEFAULT 'worldwide',
+      automation_batch_limit INTEGER NOT NULL DEFAULT 5,
+      submission_approval_mode TEXT NOT NULL DEFAULT 'review_required',
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -182,6 +184,8 @@ function migrate(database: Database.Database) {
   addColumn(database, "artist_profile", "preferences_zh", "TEXT NOT NULL DEFAULT ''");
   addColumn(database, "artist_profile", "preferences_en", "TEXT NOT NULL DEFAULT ''");
   addColumn(database, "artist_profile", "application_region", "TEXT NOT NULL DEFAULT 'worldwide'");
+  addColumn(database, "artist_profile", "automation_batch_limit", "INTEGER NOT NULL DEFAULT 5");
+  addColumn(database, "artist_profile", "submission_approval_mode", "TEXT NOT NULL DEFAULT 'review_required'");
   addColumn(database, "works", "title_zh", "TEXT NOT NULL DEFAULT ''");
   addColumn(database, "works", "title_en", "TEXT NOT NULL DEFAULT ''");
   addColumn(database, "works", "medium_zh", "TEXT NOT NULL DEFAULT ''");
@@ -278,6 +282,10 @@ const mapProfile = (row: any): ArtistProfile => ({
   preferencesZh: row.preferences_zh || row.preferences,
   preferencesEn: row.preferences_en || row.preferences,
   applicationRegion: row.application_region || "worldwide",
+  automationBatchLimit: Math.max(1, Math.min(100, Number(row.automation_batch_limit) || 5)),
+  submissionApprovalMode: ["review_required", "review_optional", "direct_apply"].includes(row.submission_approval_mode)
+    ? row.submission_approval_mode
+    : "review_required",
   updatedAt: row.updated_at
 });
 
@@ -474,6 +482,8 @@ export function saveArtistData(payload: ArtistPayload) {
         statement_zh=@statementZh, statement_en=@statementEn,
         preferences=@preferences, preferences_zh=@preferencesZh, preferences_en=@preferencesEn,
         application_region=@applicationRegion,
+        automation_batch_limit=@automationBatchLimit,
+        submission_approval_mode=@submissionApprovalMode,
         updated_at=CURRENT_TIMESTAMP
       WHERE id=1
     `).run(payload.profile);

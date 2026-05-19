@@ -2,7 +2,7 @@
 
 ## 中文
 
-这个项目可以只配合 Codex 使用，也可以只使用项目内外部模型 API，或两者结合。Web app 负责保存资料、索引材料、记录机会和写出快照；Codex 可以读取这些快照继续理解材料、搜索和核验机会、制作申请包，并在用户明确确认后继续投递步骤。
+这个项目可以只配合 Codex 使用，也可以只使用项目内外部模型 API，或两者结合。Web app 负责保存资料、索引材料、记录机会和写出快照；Codex 可以读取这些快照继续理解材料、搜索和核验机会、制作申请包，并按使用者选择的审核模式继续投递步骤。
 
 ### 使用步骤
 
@@ -29,7 +29,9 @@ generated/codex/automation-instructions.md
 - Codex 自动化不需要 `.env.local` 中的外部模型 API key。
 - 项目内模型自动化由使用者自行选择和配置，可以用于网页内报告、手动机会链接核验和草稿生成。
 - 两种方式可以单独使用，也可以组合使用。
-- 任何路径都不能在没有用户明确确认时发送邮件、提交表单、付款、处理验证码或完成敏感授权。
+- 使用者可以把每轮最多处理数量设为 1-100。
+- 提交审核模式可以设为必须审核、可跳过审核准备或直接申请。
+- 直接申请代表使用者对当前运行批次做了预授权；但付款、登录、验证码、敏感授权、资格不明、费用不明、材料缺失或不可逆操作仍必须暂停。
 - 真实材料、数据库、生成申请包、最终提交文件和 API key 都不应提交到 Git。
 
 ## English
@@ -61,5 +63,7 @@ generated/codex/automation-instructions.md
 - Codex automation does not require external model API keys in `.env.local`.
 - In-app model automation is user-configured and can be used for reports, manual opportunity link checks, and draft generation.
 - The two modes can be used separately or together.
-- No automation path may send emails, submit forms, pay fees, handle captchas, or complete sensitive authorization without explicit user confirmation.
+- Users can set the maximum number of opportunities per run from 1 to 100.
+- Submission approval mode can be review required, review optional, or direct apply.
+- Direct apply is pre-authorization for the current run batch; automation must still pause for payment, login, captcha, sensitive authorization, unclear eligibility, unclear fees, missing required materials, or irreversible actions.
 - Real materials, databases, generated packages, final submission files, and API keys should not be committed to Git.

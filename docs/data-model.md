@@ -2,7 +2,7 @@
 
 ## SQLite Tables
 
-- `artist_profile`：艺术家事实资料、双语 bio/statement、申请地区偏好。
+- `artist_profile`：艺术家事实资料、双语 bio/statement、申请地区偏好、每轮处理数量和提交审核模式。
 - `works`：作品事实资料和双语描述。
 - `cv_entries`：CV 条目。
 - `material_sources`：原始材料索引、路径、提取文本和类型。

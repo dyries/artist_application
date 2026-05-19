@@ -24,6 +24,8 @@ export const emptyProfile: ArtistProfile = {
   preferencesZh: "",
   preferencesEn: "",
   applicationRegion: "worldwide",
+  automationBatchLimit: 5,
+  submissionApprovalMode: "review_required",
   updatedAt: ""
 };
 
@@ -95,8 +97,18 @@ export const applicationRegionOptions = [
   { value: "online", label: "线上/不限地点" }
 ];
 
+export const submissionApprovalModeOptions = [
+  { value: "review_required", label: "必须审核后提交" },
+  { value: "review_optional", label: "可跳过审核准备" },
+  { value: "direct_apply", label: "直接申请（高风险）" }
+];
+
 export function applicationRegionLabel(value: string) {
   return applicationRegionOptions.find((item) => item.value === value)?.label ?? "全世界";
+}
+
+export function submissionApprovalModeLabel(value: string) {
+  return submissionApprovalModeOptions.find((item) => item.value === value)?.label ?? "必须审核后提交";
 }
 
 export function materialKindLabel(kind: MaterialKind) {
@@ -109,7 +121,8 @@ export function prepareSavePayload(data: StudioData) {
       ...data.profile,
       name: data.profile.nameEn || data.profile.nameZh || data.profile.name,
       location: data.profile.locationEn || data.profile.locationZh || data.profile.location,
-      preferences: data.profile.preferencesEn || data.profile.preferencesZh || data.profile.preferences
+      preferences: data.profile.preferencesEn || data.profile.preferencesZh || data.profile.preferences,
+      automationBatchLimit: clampBatchLimit(data.profile.automationBatchLimit)
     },
     works: data.works
       .map((work) => ({
@@ -133,6 +146,11 @@ export function prepareSavePayload(data: StudioData) {
       .filter(hasCvContent),
     materialSources: data.materialSources.filter(hasSourceContent)
   };
+}
+
+function clampBatchLimit(value: number) {
+  if (!Number.isFinite(value)) return 5;
+  return Math.max(1, Math.min(100, Math.trunc(value)));
 }
 
 function hasWorkContent(work: Work) {

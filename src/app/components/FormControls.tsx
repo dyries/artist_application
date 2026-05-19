@@ -38,3 +38,30 @@ export function SelectField({
     </label>
   );
 }
+
+export function NumberField({
+  label,
+  value,
+  min,
+  max,
+  onChange
+}: {
+  label: string;
+  value: number;
+  min?: number;
+  max?: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="label">
+      <span>{label}</span>
+      <input
+        type="number"
+        value={Number.isFinite(value) ? value : ""}
+        min={min}
+        max={max}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    </label>
+  );
+}
