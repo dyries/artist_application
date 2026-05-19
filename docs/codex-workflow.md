@@ -2,7 +2,7 @@
 
 ## 中文
 
-这个项目可以在没有外部模型 API key 的情况下配合 Codex 使用。Web app 负责保存资料、索引材料、记录机会和写出快照；Codex 负责理解材料、搜索和核验机会、制作申请包，并在用户明确确认后继续投递步骤。
+这个项目可以只配合 Codex 使用，也可以只使用项目内外部模型 API，或两者结合。Web app 负责保存资料、索引材料、记录机会和写出快照；Codex 可以读取这些快照继续理解材料、搜索和核验机会、制作申请包，并在用户明确确认后继续投递步骤。
 
 ### 使用步骤
 
@@ -27,13 +27,14 @@ generated/codex/automation-instructions.md
 ### 能力边界
 
 - Codex 自动化不需要 `.env.local` 中的外部模型 API key。
-- 项目内模型自动化是可选路径，只用于网页内报告、手动机会链接核验和草稿生成。
+- 项目内模型自动化由使用者自行选择和配置，可以用于网页内报告、手动机会链接核验和草稿生成。
+- 两种方式可以单独使用，也可以组合使用。
 - 任何路径都不能在没有用户明确确认时发送邮件、提交表单、付款、处理验证码或完成敏感授权。
 - 真实材料、数据库、生成申请包、最终提交文件和 API key 都不应提交到 Git。
 
 ## English
 
-This project can be used with Codex without configuring external model API keys. The web app stores profile data, indexes source materials, records opportunities, and exports a workspace snapshot. Codex performs material interpretation, opportunity search and verification, application package production, and user-confirmed submission steps.
+This project can be used with Codex only, with in-app external model APIs only, or with both. The web app stores profile data, indexes source materials, records opportunities, and exports a workspace snapshot. Codex can read that snapshot and continue with material interpretation, opportunity search and verification, application package production, and user-confirmed submission steps.
 
 ### Workflow
 
@@ -58,6 +59,7 @@ generated/codex/automation-instructions.md
 ### Boundaries
 
 - Codex automation does not require external model API keys in `.env.local`.
-- In-app model automation is optional and limited to reports, manual opportunity link checks, and draft generation.
+- In-app model automation is user-configured and can be used for reports, manual opportunity link checks, and draft generation.
+- The two modes can be used separately or together.
 - No automation path may send emails, submit forms, pay fees, handle captchas, or complete sensitive authorization without explicit user confirmation.
 - Real materials, databases, generated packages, final submission files, and API keys should not be committed to Git.

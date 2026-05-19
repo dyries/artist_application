@@ -13,12 +13,13 @@ npm run dev
 
 开发服务器启动后，终端会显示访问地址；端口以终端输出为准。
 
-## 自动化方式
+## 自动化选择
 
-项目有两条自动化路径：
+使用者可以按自己的工具和预算选择自动化方式：
 
-- Codex 自动化：适合完整工作流。使用者需要在 Codex 中打开这个仓库，让 Codex 读取 `generated/codex/artist-snapshot.json` 和 `generated/codex/automation-instructions.md`。这条路径不需要在项目里配置 DeepSeek、OpenAI、Gemini 或 Claude API key。
-- 项目内模型自动化：适合在网页内生成报告、核验手动机会链接和生成草稿。需要在 `.env.local` 配置外部模型 API key。它不能替代 Codex 的实时核验、复杂文件处理和最终投递确认。
+- 只用 Codex：在 Codex 中打开这个仓库，让 Codex 读取 `generated/codex/artist-snapshot.json` 和 `generated/codex/automation-instructions.md`。这种方式不需要在项目里配置外部模型 API key。
+- 只用项目内模型：在 `.env.local` 配置 DeepSeek、OpenAI、Gemini、Claude 或兼容 API，在网页内生成报告、核验手动机会链接和生成草稿。
+- Codex + 项目内模型：网页内模型负责快速草稿和初步整理，Codex 负责复杂材料理解、实时搜索、机会核验、申请包制作和用户确认后的投递步骤。
 
 刷新 Codex 上下文的方式：
 
@@ -26,17 +27,18 @@ npm run dev
 2. 在网页里点击“刷新 Codex 上下文”。
 3. 在 Codex 中要求自动化读取 `generated/codex/` 下的快照和说明，并继续机会搜索、材料分析或申请包制作。
 
-## Automation Modes
+## Automation Choices
 
-There are two automation paths:
+Users can choose the automation setup that fits their tools and budget:
 
-- Codex automation: the full workflow path. Open this repository in Codex and ask Codex to read `generated/codex/artist-snapshot.json` and `generated/codex/automation-instructions.md`. This path does not require DeepSeek, OpenAI, Gemini, or Claude API keys in the project.
-- In-app model automation: a secondary path for reports, manual opportunity link checks, and draft generation inside the web app. It requires model API keys in `.env.local` and does not replace Codex verification, complex file handling, or explicit submission approval.
+- Codex only: open this repository in Codex and ask Codex to read `generated/codex/artist-snapshot.json` and `generated/codex/automation-instructions.md`. This mode does not require external model API keys in the project.
+- In-app model only: configure DeepSeek, OpenAI, Gemini, Claude, or a compatible API in `.env.local` and use the web app to generate reports, check manually added opportunity links, and draft packages.
+- Codex + in-app model: use the web app model for fast drafts and first-pass organization, then use Codex for complex material interpretation, live research, opportunity verification, package production, and user-confirmed submission steps.
 
 ## 长期项目文档
 
 - [长期规则](docs/rules.md)：申请、材料、审核、最终归档和安全边界。
-- [自动化说明](docs/automation.md)：Codex 自动化和项目内外部模型自动化的职责边界。
+- [自动化说明](docs/automation.md)：Codex 自动化和项目内外部模型自动化的选择方式与职责边界。
 - [Codex 使用流程](docs/codex-workflow.md)：如何在 Codex 中复现完整自动化工作流。
 - [数据模型](docs/data-model.md)：SQLite 表、事实/草稿分层、生成文件 manifest。
 - [状态生命周期](docs/status-lifecycle.md)：机会和申请包状态如何流转。
@@ -79,9 +81,9 @@ cp .env.example .env.local
 npm run dev
 ```
 
-如果只用 Codex 自动化，可以不配置外部模型 API。项目内 AI 自动化需要通过 `.env.local` 配置 DeepSeek、OpenAI、Gemini、Claude 或其他兼容接口 key。不要把 `.env.local` 或任何真实 key 提交到 Git。
+可以只用 Codex 自动化，也可以只配置项目内 AI 自动化，或两者结合使用。项目内 AI 自动化需要通过 `.env.local` 配置 DeepSeek、OpenAI、Gemini、Claude 或其他兼容接口 key。不要把 `.env.local` 或任何真实 key 提交到 Git。
 
-For Codex-only usage, no external model API key is required. In-app model automation requires keys in `.env.local`; never commit real credentials.
+Users can choose Codex automation, in-app model automation, or both. In-app model automation requires keys in `.env.local`; never commit real credentials.
 
 ## 常用检查
 

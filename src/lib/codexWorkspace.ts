@@ -40,7 +40,7 @@ export function exportCodexWorkspace() {
     applicationPreferences: {
       reviewLanguage: "zh-CN",
       automationBoundaryRule:
-        "Codex automation runs inside Codex and uses Codex/OpenAI models. It must not depend on DeepSeek, Gemini, Claude, OpenAI API keys, or any project external API key. Project-internal external-model automation is an optional separate path for the web app only. The runtime may configure external model providers in .env.local, or configure no external API and use Codex automation only.",
+        "Users may choose Codex automation, project-internal external-model automation, or both. Codex automation runs inside Codex and must not depend on DeepSeek, Gemini, Claude, OpenAI API keys, or any project external API key. Project-internal external-model automation uses providers configured in .env.local when available. Both paths must respect user review and explicit confirmation boundaries.",
       maintenanceRule:
         "Whenever the user adds, changes, or corrects any workflow, application-package, material, or automation rule in conversation, update both project rules and Codex automation rules immediately. Application package rules must always follow the newest user-provided rules. Each code change must remove obsolete code, wording, interfaces, and rules unless explicitly kept for compatibility and documented as such.",
       userReviewEditRule:
@@ -93,13 +93,13 @@ export function exportCodexWorkspace() {
 
 Use this workspace as the source of truth for an AI-led artist application workflow. The app stores materials and results; Codex performs the actual interpretation, writing, opportunity review, package preparation, and confirmed submission work.
 
-## Automation Boundary
+## Automation Choices And Boundaries
 
-- Codex automation is the primary path for this workflow and runs inside Codex using Codex/OpenAI models.
-- Do not require, read, or depend on project external model API keys such as DeepSeek, Gemini, Claude, or OpenAI API keys when running Codex automation.
-- The web app may optionally expose a separate OpenAI-compatible external-model path for project-internal automation. Treat that as an optional secondary feature only; it does not replace Codex automation.
-- External model providers may be configured in \`.env.local\`, or omitted when using Codex automation only. Never commit or share API keys.
-- When both paths exist, Codex automation remains responsible for live opportunity verification, deadline/fee/eligibility checks, complex file work, and any user-confirmed submission steps.
+- Users may choose Codex automation, project-internal external-model automation, or both.
+- Codex automation runs inside Codex using Codex/OpenAI models. Do not require, read, or depend on project external model API keys such as DeepSeek, Gemini, Claude, or OpenAI API keys when running Codex automation.
+- Project-internal external-model automation uses providers configured in \`.env.local\` when available. It may generate reports, verify manually added opportunity links from fetched source text, and draft packages inside the web app.
+- When both paths are used, project-internal automation can handle fast drafts and first-pass organization while Codex handles higher-risk or more complex verification, material interpretation, file production, and user-confirmed submission steps.
+- Never commit or share API keys.
 - No path may submit forms, send email, pay fees, or handle login/captcha without explicit user confirmation.
 
 ## Maintenance Rules

@@ -1,19 +1,21 @@
 # Automation Guide
 
-## Automation Paths
+## Automation Choices
 
-Codex 自动化和项目内外部模型自动化是两条独立路径。
+Codex 自动化和项目内外部模型自动化是两条可自由选择、也可以组合使用的路径。
 
-- Codex 自动化：由 Codex/OpenAI 模型完成完整流程，包括实时搜索、网页核验、复杂文件处理、申请包制作和用户确认后的投递步骤。
-- 项目内外部模型自动化：由项目读取 `.env.local` 中配置的 API key 调用 DeepSeek、OpenAI、Gemini、Claude 或其他兼容模型，适合在网页内生成报告、核验手动机会链接和生成草稿。
-- 项目内外部模型自动化不替代 Codex 自动化，也不允许绕过最终确认。
+- 只用 Codex：由 Codex/OpenAI 模型完成实时搜索、网页核验、复杂文件处理、申请包制作和用户确认后的投递步骤；项目不需要外部模型 API key。
+- 只用项目内外部模型：由项目读取 `.env.local` 中配置的 API key 调用 DeepSeek、OpenAI、Gemini、Claude 或其他兼容模型，在网页内生成报告、核验手动机会链接和生成草稿。
+- Codex + 项目内外部模型：项目内模型负责快速草稿和初步整理，Codex 负责更高风险或更复杂的核验、材料理解、文件制作和投递步骤。
+- 任何路径都不允许绕过最终确认。
 - 如果两条路径同时可用，涉及机会真实性、截止日期、费用、资格和最终投递的高风险步骤，以 Codex 自动化的核验和用户确认作为准则。
 
-Codex automation and in-app external-model automation are separate paths.
+Codex automation and in-app external-model automation can be used separately or together.
 
-- Codex automation handles the full workflow: live research, webpage verification, complex file work, application package production, and user-confirmed submission steps.
-- In-app external-model automation reads the API key configured in `.env.local` and can generate reports, check manually added opportunity links, and draft packages inside the web app.
-- In-app external-model automation does not replace Codex automation and cannot bypass final user approval.
+- Codex only: Codex/OpenAI models handle live research, webpage verification, complex file work, application package production, and user-confirmed submission steps. No external model API key is required in the project.
+- In-app external model only: the app reads the API key configured in `.env.local` and can generate reports, check manually added opportunity links, and draft packages inside the web app.
+- Codex + in-app external model: the in-app model handles fast drafts and first-pass organization, while Codex handles higher-risk or more complex verification, material interpretation, file production, and submission steps.
+- No path can bypass final user approval.
 - When both paths are available, high-risk facts such as opportunity authenticity, deadline, fee, eligibility, and final submission readiness should be verified through Codex automation and explicit user confirmation.
 
 ## Codex Workspace Export
