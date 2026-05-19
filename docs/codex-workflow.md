@@ -10,6 +10,7 @@
 - 安装 Node.js 20 或更新版本。
 - 使用 Codex 自动化时，需要安装并登录 Codex。
 - 使用项目内模型自动化时，需要准备自己的外部模型 API key。
+- 可选：安装 Python 3 和 `pypdf`、`python-docx`、`reportlab`，用于更完整的材料提取和 DOCX/PDF 输出。可通过 `ARTIST_STUDIO_PYTHON` 指定 Python 路径。
 
 ### 使用步骤
 
@@ -51,6 +52,7 @@ This project can be used with Codex only, with in-app external model APIs only, 
 - Install Node.js 20 or newer.
 - Install and sign in to Codex when using Codex automation.
 - Prepare external model API keys when using in-app model automation.
+- Optional: install Python 3 with `pypdf`, `python-docx`, and `reportlab` for stronger material extraction and DOCX/PDF export. Set `ARTIST_STUDIO_PYTHON` to choose a Python executable.
 
 ### Workflow
 

@@ -4,6 +4,7 @@
 
 - 默认分支使用 `main`。
 - 运行环境需要 Git、Node.js 20 或更新版本、npm。
+- 可选增强依赖：Python 3、`pypdf`、`python-docx`、`reportlab`、macOS `textutil`、系统 `file` 命令。缺失时项目仍可运行，但材料提取或 DOCX/PDF 导出能力会降级。
 - 只提交代码、文档、配置、目录占位文件和可公开示例。
 - 不提交真实材料、数据库、生成申请包、最终提交文件、备份、`.env.local` 或第三方平台凭据。
 - 每次规则变化都要同时更新 `docs/` 和 Codex 自动化说明模板。

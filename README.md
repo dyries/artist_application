@@ -12,6 +12,15 @@ Artist Application AI Workspace stores artist profiles, source material indexes,
 - Codex：可选；需要使用 Codex 自动化时安装并登录 Codex。
 - 外部模型 API key：可选；只在使用项目内模型自动化时需要，例如 DeepSeek、OpenAI、Gemini、Claude 或兼容 API。
 
+`npm install` 会安装项目需要的 Node 依赖，包括 Next.js、React、SQLite 绑定、图片元数据处理和校验库。
+
+可选增强：
+
+- Python 3：用于更完整地提取 PDF、DOCX、PPTX、IDML、Keynote 文本，以及生成 DOCX/PDF 申请包。可以通过 `ARTIST_STUDIO_PYTHON` 指定路径。
+- Python 包：`pypdf`、`python-docx`、`reportlab`。没有这些包时，项目仍能运行，但相关文本提取或 DOCX/PDF 导出会降级。
+- macOS `textutil`：用于旧 `.doc` 和 `.rtf` 文本提取。其他系统可先把旧文档转换成 `.docx` 或 `.pdf`。
+- 系统 `file` 命令：用于补充文件类型和图片元数据；缺失时只影响 metadata fallback。
+
 ## Requirements
 
 - Git: clone the repository and manage versions.
@@ -19,6 +28,15 @@ Artist Application AI Workspace stores artist profiles, source material indexes,
 - npm: install dependencies and run scripts.
 - Codex: optional; required only for Codex automation.
 - External model API keys: optional; required only for in-app model automation, such as DeepSeek, OpenAI, Gemini, Claude, or compatible APIs.
+
+`npm install` installs the required Node dependencies, including Next.js, React, SQLite bindings, image metadata processing, and validation libraries.
+
+Optional enhancements:
+
+- Python 3: improves PDF, DOCX, PPTX, IDML, and Keynote text extraction, and enables DOCX/PDF application package export. Set `ARTIST_STUDIO_PYTHON` to choose a Python executable.
+- Python packages: `pypdf`, `python-docx`, `reportlab`. Without them, the app still runs, but related extraction or DOCX/PDF export degrades.
+- macOS `textutil`: extracts text from legacy `.doc` and `.rtf` files. On other systems, convert legacy documents to `.docx` or `.pdf`.
+- System `file` command: provides file type and image metadata fallback; missing it only affects fallback metadata.
 
 ## 启动
 
