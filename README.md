@@ -4,6 +4,22 @@
 
 Artist Application AI Workspace stores artist profiles, source material indexes, opportunity records, application package state, and generated outputs. Interpretation, opportunity verification, application writing, package production, and confirmed submission steps are handled by Codex automation or by the optional in-app model automation path.
 
+## 运行前提
+
+- Git：用于克隆仓库和版本管理。
+- Node.js 20 或更新版本：用于运行 Next.js 应用。
+- npm：随 Node.js 安装，用于安装依赖和运行脚本。
+- Codex：可选；需要使用 Codex 自动化时安装并登录 Codex。
+- 外部模型 API key：可选；只在使用项目内模型自动化时需要，例如 DeepSeek、OpenAI、Gemini、Claude 或兼容 API。
+
+## Requirements
+
+- Git: clone the repository and manage versions.
+- Node.js 20 or newer: run the Next.js app.
+- npm: install dependencies and run scripts.
+- Codex: optional; required only for Codex automation.
+- External model API keys: optional; required only for in-app model automation, such as DeepSeek, OpenAI, Gemini, Claude, or compatible APIs.
+
 ## 启动
 
 ```bash

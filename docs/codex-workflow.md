@@ -4,6 +4,13 @@
 
 这个项目可以只配合 Codex 使用，也可以只使用项目内外部模型 API，或两者结合。Web app 负责保存资料、索引材料、记录机会和写出快照；Codex 可以读取这些快照继续理解材料、搜索和核验机会、制作申请包，并按使用者选择的审核模式继续投递步骤。
 
+### 前提
+
+- 安装 Git。
+- 安装 Node.js 20 或更新版本。
+- 使用 Codex 自动化时，需要安装并登录 Codex。
+- 使用项目内模型自动化时，需要准备自己的外部模型 API key。
+
 ### 使用步骤
 
 1. 安装依赖并启动项目：
@@ -37,6 +44,13 @@ generated/codex/automation-instructions.md
 ## English
 
 This project can be used with Codex only, with in-app external model APIs only, or with both. The web app stores profile data, indexes source materials, records opportunities, and exports a workspace snapshot. Codex can read that snapshot and continue with material interpretation, opportunity search and verification, application package production, and user-confirmed submission steps.
+
+### Prerequisites
+
+- Install Git.
+- Install Node.js 20 or newer.
+- Install and sign in to Codex when using Codex automation.
+- Prepare external model API keys when using in-app model automation.
 
 ### Workflow
 
