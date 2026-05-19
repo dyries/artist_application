@@ -20,7 +20,7 @@ export function writeGeneratedDocuments(folder: string, input: DocumentInput) {
       maxBuffer: 20 * 1024 * 1024
     });
   } catch {
-    // Markdown files are still written by the caller; PDF/DOCX export is best-effort in the local app.
+    // Markdown files are still written by the caller; PDF/DOCX export is best-effort in the app runtime.
   }
 }
 

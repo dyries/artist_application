@@ -96,7 +96,7 @@ export default function Studio() {
     setBusy("save");
     try {
       await persistArtistData();
-      setMessage("资料已保存到本地 SQLite。下一步由 Codex 自动化读取材料并整理。");
+      setMessage("资料已保存到 SQLite。下一步由 Codex 自动化读取材料并整理。");
       setError("");
     } catch (err) {
       showError(err);
@@ -617,7 +617,7 @@ export default function Studio() {
           {tab === "submissions" && (
             <div className="panel stack">
               <h2>申请包</h2>
-              {data.applications.length === 0 && <p className="muted">Codex 自动化准备出的申请草稿、材料清单和本地文件路径会显示在这里。给你审核的表单答案、bio、statement、项目文字、作品说明和 checklist 都应提供中英对照；最终提交版只使用对方要求的语言。你最终确认后，Codex 自动化再继续投递。</p>}
+              {data.applications.length === 0 && <p className="muted">Codex 自动化准备出的申请草稿、材料清单和文件路径会显示在这里。给你审核的表单答案、bio、statement、项目文字、作品说明和 checklist 都应提供中英对照；最终提交版只使用对方要求的语言。你最终确认后，Codex 自动化再继续投递。</p>}
               {data.applications.map((app) => (
                 <div className="card stack" key={app.id}>
                   <h3>申请包 #{app.id}</h3>
@@ -666,7 +666,7 @@ ANTHROPIC_API_KEY=你的 key`}</pre>
               </div>
               <div className="card stack">
                 <h3>Codex 自动化写回</h3>
-                <p className="muted">自动化可以把整理后的资料、机会、筛选报告、申请包和投递记录写回本地数据库与生成目录：</p>
+                <p className="muted">自动化可以把整理后的资料、机会、筛选报告、申请包和投递记录写回数据库与生成目录：</p>
                 <pre>{`data/artist.sqlite
 generated/reports/
 generated/applications/

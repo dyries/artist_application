@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { mapWithConcurrency } from "./concurrency";
-import { materialFromLocalFile } from "./fileMaterials";
+import { materialFromFile } from "./fileMaterials";
 import { materialsInboxDir } from "./paths";
 import type { MaterialKind, SourceMaterial } from "@/types/domain";
 
@@ -65,7 +65,7 @@ export async function scanMaterialsInbox(existingFilePaths: string[]): Promise<S
     .filter((filePath) => supportedExtensions.has(path.extname(filePath).toLowerCase()))
     .filter((filePath) => !existing.has(filePath));
 
-  const materials = await mapWithConcurrency(files, 4, (filePath) => materialFromLocalFile(filePath, kindFromPath(filePath)));
+  const materials = await mapWithConcurrency(files, 4, (filePath) => materialFromFile(filePath, kindFromPath(filePath)));
   return materials;
 }
 

@@ -33,7 +33,7 @@ npm run backup
 - `artist-assets/`
 - `generated/final-submissions/`
 
-备份写入 `backups/YYYY-MM-DDTHH-mm-ss/`。备份目录只用于本机保存，不应提交到 Git。
+备份写入 `backups/YYYY-MM-DDTHH-mm-ss/`。备份目录用于运行环境内的数据留存，不应提交到 Git。
 
 ## Release Checklist
 

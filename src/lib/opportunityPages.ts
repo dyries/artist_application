@@ -31,8 +31,8 @@ export async function refreshOpportunityPages(opportunities: Opportunity[]) {
         ? [opportunity.risks, "Page fetched by project automation; model must still verify facts against the source text."].filter(Boolean).join("\n")
         : [opportunity.risks, `Page fetch failed: ${result.error}`].filter(Boolean).join("\n"),
       summary: result.ok
-        ? opportunity.summary || "User-provided opportunity link fetched locally. Awaiting model verification."
-        : opportunity.summary || "User-provided opportunity link could not be fetched locally. Codex automation may need browser verification.",
+        ? opportunity.summary || "User-provided opportunity link fetched by project automation. Awaiting model verification."
+        : opportunity.summary || "User-provided opportunity link could not be fetched by project automation. Codex automation may need browser verification.",
       source: opportunity.source || "user-provided-link"
     });
   }
@@ -44,7 +44,7 @@ async function fetchOpportunityPage(opportunity: Opportunity): Promise<PageFetch
   try {
     const response = await fetch(opportunity.url, {
       headers: {
-        "User-Agent": "ArtistStudio/0.1 (+local project automation)",
+        "User-Agent": "ArtistStudio/0.1 (+project automation)",
         "Accept": "text/html,application/xhtml+xml,application/xml,text/plain;q=0.9,*/*;q=0.8"
       },
       signal: AbortSignal.timeout(15000)

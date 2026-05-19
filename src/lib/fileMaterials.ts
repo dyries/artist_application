@@ -79,7 +79,7 @@ export async function saveUploadedMaterial(file: File): Promise<UploadedMaterial
   };
 }
 
-export async function materialFromLocalFile(filePath: string, kindHint?: MaterialKind): Promise<UploadedMaterial> {
+export async function materialFromFile(filePath: string, kindHint?: MaterialKind): Promise<UploadedMaterial> {
   const originalName = path.basename(filePath);
   const ext = path.extname(originalName).toLowerCase();
   const mimeType = mimeFromExtension(ext);
@@ -130,7 +130,7 @@ export async function extractMaterialText(filePath: string, fileName: string, mi
     return binaryFileSummary(filePath, fileName, "Adobe InDesign document. Direct text extraction requires InDesign export to IDML/PDF; sibling Links folders and exported PDFs are still scanned separately when present.");
   }
   if (ext === ".mp3") {
-    return binaryFileSummary(filePath, fileName, "Audio file. Transcript extraction is not available locally; system metadata is indexed.");
+    return binaryFileSummary(filePath, fileName, "Audio file. Transcript extraction is not available in this scanner; system metadata is indexed.");
   }
   if (ext === ".rar") {
     return binaryFileSummary(filePath, fileName, "RAR archive. Archive contents require an unrar-capable extractor; file metadata is indexed.");

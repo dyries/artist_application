@@ -40,9 +40,9 @@ export function exportCodexWorkspace() {
     applicationPreferences: {
       reviewLanguage: "zh-CN",
       automationBoundaryRule:
-        "Codex automation runs inside Codex and uses Codex/OpenAI models. It must not depend on DeepSeek, Gemini, Claude, OpenAI API keys, or any project-local external API key. Project-internal external-model automation is an optional separate path for the local web app only. Different users may configure different local API providers in their own .env.local, or configure no external API and use Codex automation only.",
+        "Codex automation runs inside Codex and uses Codex/OpenAI models. It must not depend on DeepSeek, Gemini, Claude, OpenAI API keys, or any project external API key. Project-internal external-model automation is an optional separate path for the web app only. The runtime may configure external model providers in .env.local, or configure no external API and use Codex automation only.",
       maintenanceRule:
-        "Whenever the user adds, changes, or corrects any workflow, application-package, material, or automation rule in conversation, update both local project rules and Codex automation rules immediately. Application package rules must always follow the newest user-provided rules. Each code change must remove obsolete code, wording, interfaces, and rules unless explicitly kept for compatibility and documented as such.",
+        "Whenever the user adds, changes, or corrects any workflow, application-package, material, or automation rule in conversation, update both project rules and Codex automation rules immediately. Application package rules must always follow the newest user-provided rules. Each code change must remove obsolete code, wording, interfaces, and rules unless explicitly kept for compatibility and documented as such.",
       userReviewEditRule:
         "User-facing application packages and review files are editable by the user. If the user edits any review draft, package file, DOCX/PDF, form answer, portfolio text, caption, checklist, or email draft, Codex automation must treat the edited file as the new source of truth and update downstream final submission files, database records, reports, and archive indexes accordingly. If the final submission language is English but the user edits the Chinese review draft, understand the Chinese edit as the user's content intent and synchronize it into the final English submission draft without inserting Chinese text into the English final file. Do not continue from stale pre-edit drafts.",
       manualOpportunityLinkRule:
@@ -91,24 +91,24 @@ export function exportCodexWorkspace() {
     instructionsPath,
     `# Codex Artist Automation
 
-Use this workspace as the source of truth for an AI-led artist application workflow. The local app stores materials and results; Codex performs the actual interpretation, writing, opportunity review, package preparation, and confirmed submission work.
+Use this workspace as the source of truth for an AI-led artist application workflow. The app stores materials and results; Codex performs the actual interpretation, writing, opportunity review, package preparation, and confirmed submission work.
 
 ## Automation Boundary
 
 - Codex automation is the primary path for this workflow and runs inside Codex using Codex/OpenAI models.
-- Do not require, read, or depend on project-local external model API keys such as DeepSeek, Gemini, Claude, or OpenAI API keys when running Codex automation.
-- The local web app may optionally expose a separate OpenAI-compatible external-model path for project-internal automation. Treat that as an optional secondary feature only; it does not replace Codex automation.
-- Different users may configure different local external model providers in their own \`.env.local\`, or configure no external API and use Codex automation only. Never commit or share API keys.
+- Do not require, read, or depend on project external model API keys such as DeepSeek, Gemini, Claude, or OpenAI API keys when running Codex automation.
+- The web app may optionally expose a separate OpenAI-compatible external-model path for project-internal automation. Treat that as an optional secondary feature only; it does not replace Codex automation.
+- External model providers may be configured in \`.env.local\`, or omitted when using Codex automation only. Never commit or share API keys.
 - When both paths exist, Codex automation remains responsible for live opportunity verification, deadline/fee/eligibility checks, complex file work, and any user-confirmed submission steps.
 - No path may submit forms, send email, pay fees, or handle login/captcha without explicit user confirmation.
 
 ## Maintenance Rules
 
-- Whenever the user adds, changes, or corrects any workflow rule, application-package rule, material rule, automation rule, or execution boundary in conversation, immediately update both local project rules/documentation and the Codex automation instructions. Do not leave rules only in chat memory.
+- Whenever the user adds, changes, or corrects any workflow rule, application-package rule, material rule, automation rule, or execution boundary in conversation, immediately update both project rules/documentation and the Codex automation instructions. Do not leave rules only in chat memory.
 - Application package rules must always follow the latest user-provided rules, including opportunity screening, review language, review file format, portfolio quality, final submission language, final archive, submission confirmation, and draft cleanup.
 - Every code change must remove or replace obsolete code, obsolete wording, old interfaces, and superseded rules. Do not leave dead branches or misleading legacy behavior behind.
 - If an old interface or file is intentionally kept for compatibility, document the compatibility reason clearly; otherwise remove it.
-- If local project rules and Codex automation rules conflict, follow the newest user instruction and synchronize both rule sets immediately.
+- If project rules and Codex automation rules conflict, follow the newest user instruction and synchronize both rule sets immediately.
 
 ## User Review And Edit Rules
 
@@ -136,11 +136,11 @@ Use this workspace as the source of truth for an AI-led artist application workf
 - Source material excerpts may contain extracted text and metadata such as path, pixel dimensions, file format, color space, DPI, audio/video duration, or system file information. Treat this as indexing only. For any selection, critique, portfolio layout, artwork identification, image-quality judgment, text interpretation, audio/video understanding, or final material decision, inspect the original material content directly through Codex multimodal analysis or, for project-internal automation, through a multimodal model API once connected.
 - Files manually dropped by the user belong under \`artist-assets/inbox/\` by category. Scan or inspect those files when the user says new materials were added.
 - Final submitted or user-approved submission files must be copied into \`generated/final-submissions/YYYY-MM-DD/\` for long-term lookup.
-- Do not rely on local rule-based generators for CV, statements, work lists, or application text. Read and reason over the materials directly.
+- Do not rely on rule-based generators for CV, statements, work lists, or application text. Read and reason over the materials directly.
 
 ## AI Responsibilities
 
-- Whenever the user corrects or improves the workflow, application package rules, material handling, automation behavior, or execution boundaries, immediately update both the local project rules/documentation and the generated Codex automation instructions. Do not leave new rules only in chat memory.
+- Whenever the user corrects or improves the workflow, application package rules, material handling, automation behavior, or execution boundaries, immediately update both the project rules/documentation and the generated Codex automation instructions. Do not leave new rules only in chat memory.
 - Organize new source materials into a clean artist profile, CV, bios, artist statements, works, work descriptions, portfolio notes, and application preferences.
 - Preserve useful source details and flag ambiguities instead of inventing facts.
 - Search for relevant artist residencies, exhibition open calls, grants, awards, and other application opportunities that match the artist profile and preferences.
@@ -150,7 +150,7 @@ Use this workspace as the source of truth for an AI-led artist application workf
 - Rank outputs in two groups: Top 5 residencies and Top 5 exhibitions/open calls. These Top 5 lists must be selected from the broader candidate pool based on eligibility, artistic fit, cost, deadline, credibility, and required materials. If fewer than five qualified opportunities are available in a group, document the searched scope, rejected reasons, and closest fallback candidates.
 - Treat cost coverage as a major filter. Prefer opportunities with no application fee and full cost coverage by the organizer.
 - Exhibitions may have a reasonable application fee, but deprioritize or reject opportunities with booth fees, participation fees, venue/wall fees, mandatory production fees, or pay-to-show economics.
-- Residencies may require the artist to pay airfare/international travel, but lodging, studio/project space, and basic program costs should be covered by the organizer. Prefer residencies with stipend, production budget, per diem, materials support, local transport, or other funding.
+- Residencies may require the artist to pay airfare/international travel, but lodging, studio/project space, and basic program costs should be covered by the organizer. Prefer residencies with stipend, production budget, per diem, materials support, regional transport, or other funding.
 - Deprioritize or reject residencies that require the artist to pay lodging, program fees, or high participation fees unless the artistic fit is exceptional; clearly flag the cost risk.
 - Use the artist profile preferences in the snapshot as binding screening criteria when ranking opportunities.
 

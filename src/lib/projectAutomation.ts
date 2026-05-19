@@ -75,7 +75,7 @@ export async function runProjectAutomation() {
     {
       role: "system",
       content: [
-        "You are an artist application automation assistant embedded in a local Next.js project.",
+        "You are an artist application automation assistant embedded in a Next.js project workspace.",
         "Return one strict JSON object only. Do not wrap it in markdown.",
         "Do not claim to have verified live deadlines, fees, or eligibility unless the provided source material contains that fact.",
         "Create applicationPackages only for opportunities already present in currentOpportunities by id."
@@ -146,7 +146,7 @@ export async function runProjectAutomation() {
 
 function buildAutomationPrompt(data: ReturnType<typeof readArtistData>) {
   return JSON.stringify({
-    task: "Use the current local artist workspace to produce a project automation run. Summarize profile/material gaps, produce bilingual next steps, and draft packages for existing opportunities only when enough information exists.",
+    task: "Use the current artist workspace to produce a project automation run. Summarize profile/material gaps, produce bilingual next steps, and draft packages for existing opportunities only when enough information exists.",
     outputSchema: {
       summaryZh: "Chinese summary for user review",
       summaryEn: "English summary",
@@ -188,7 +188,7 @@ function buildAutomationPrompt(data: ReturnType<typeof readArtistData>) {
       finalSubmissionLanguageDependsOnOpportunity: true,
       doNotSubmitWithoutUserApproval: true,
       doNotInventLiveOpportunityFacts: true,
-      localProjectMayFetchUserProvidedLinks: true,
+      projectMayFetchUserProvidedLinks: true,
       externalApiMustUseFetchedSourceTextForVerification: true,
       externalApiCanDraftButCodexAutomationCanStillVerifyHighRiskFacts: true,
       applicationRegionDefaultsToWorldwide: true,

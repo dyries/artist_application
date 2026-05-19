@@ -1,6 +1,6 @@
 # Artist Application AI Workspace
 
-本地艺术家申请 AI 工作区。项目负责保存艺术家资料、材料索引、机会记录、申请包状态和生成结果；复杂判断、材料理解、机会核验、申请写作和确认后的投递步骤由 Codex 自动化或可选的项目内外部模型自动化完成。
+艺术家申请 AI 工作区。项目负责保存艺术家资料、材料索引、机会记录、申请包状态和生成结果；复杂判断、材料理解、机会核验、申请写作和确认后的投递步骤由 Codex 自动化或可选的项目内模型自动化完成。
 
 ## 启动
 
@@ -9,21 +9,7 @@ npm install
 npm run dev
 ```
 
-开发服务器启动后，终端会显示可访问的本地地址。Next.js 默认通常是：
-
-```text
-http://localhost:3000
-```
-
-如果该端口已被占用，Next.js 可能会使用其他端口，请以终端输出为准。
-
-本仓库额外提供了一个 macOS 便捷启动脚本：
-
-```text
-启动 Artist Studio.command
-```
-
-这个脚本只适用于 macOS，会尝试用固定端口 `3020` 启动并打开浏览器。Windows、Linux 或不使用该脚本时，直接使用 `npm run dev`。
+开发服务器启动后，终端会显示访问地址；端口以终端输出为准。
 
 ## 长期项目文档
 
@@ -33,12 +19,12 @@ http://localhost:3000
 - [状态生命周期](docs/status-lifecycle.md)：机会和申请包状态如何流转。
 - [维护手册](docs/maintenance.md)：Git、备份、测试和发布检查。
 
-## 本地目录
+## 项目目录
 
 - `artist-assets/inbox/`：投放新原始材料的入口，按 CV、bio、statement、portfolio、works、work-images、other 分类。
 - `artist-assets/source-materials/`：页面导入后保存的原始 PDF、Word、图片和文本材料。
 - `artist-assets/works/`：整理后的正式作品图片或申请用图片。
-- `data/artist.sqlite`：本地数据库，保存材料索引、整理后的资料、机会、申请包和状态。
+- `data/artist.sqlite`：SQLite 数据库，保存材料索引、整理后的资料、机会、申请包和状态。
 - `generated/codex/`：给 Codex 自动化读取的资料快照和说明。
 - `generated/reports/`：自动化生成的筛选报告和工作报告。
 - `generated/applications/`：自动化生成的申请包。
@@ -70,7 +56,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-如果只用 Codex 自动化，可以不配置外部模型 API。项目内 AI 自动化需要在本机 `.env.local` 中配置自己的 DeepSeek、OpenAI、Gemini、Claude 或其他兼容接口 key。不要把 `.env.local` 或任何真实 key 提交到 Git。
+如果只用 Codex 自动化，可以不配置外部模型 API。项目内 AI 自动化需要通过 `.env.local` 配置 DeepSeek、OpenAI、Gemini、Claude 或其他兼容接口 key。不要把 `.env.local` 或任何真实 key 提交到 Git。
 
 ## 常用检查
 
@@ -80,13 +66,13 @@ npm run typecheck
 npm test
 ```
 
-本地备份：
+备份：
 
 ```bash
 npm run backup
 ```
 
-备份会写入 `backups/YYYY-MM-DDTHH-mm-ss/`，该目录只用于本机长期保存，不应提交到 Git。
+备份会写入 `backups/YYYY-MM-DDTHH-mm-ss/`，该目录用于运行环境内的数据留存，不应提交到 Git。
 
 ## 安全边界
 

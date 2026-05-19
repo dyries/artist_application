@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/apiResponse";
 import { logActivity, readArtistData, readMaterialFilePaths, saveArtistData } from "@/lib/db";
-import { scanMaterialsInbox } from "@/lib/localMaterialScanner";
+import { scanMaterialsInbox } from "@/lib/materialScanner";
 
 export async function POST() {
   try {
