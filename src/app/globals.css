@@ -310,6 +310,21 @@ textarea {
   font-weight: 700;
 }
 
+.file-location {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.file-location summary {
+  cursor: pointer;
+  color: var(--accent-strong);
+}
+
+.file-location p {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+
 .meter {
   height: 8px;
   overflow: hidden;

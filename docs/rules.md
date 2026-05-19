@@ -9,6 +9,12 @@
 - 每次报错排查、bug 修复、优化或验证结果都必须写入 `docs/fix-log.md`。记录必须包含日期时间、问题现象、根因、修改文件、验证命令和仍需注意的风险；不能只把修复过程留在聊天记录或终端输出里。
 - 以后所有修改都必须同步三处：本地项目源码/文档、Codex 自动化规则或说明模板、GitHub 远端仓库。完成后要验证本地工作区干净，并确认远端 `main` 已包含最新提交。
 
+## External API Configuration
+
+- 公开 UI 和 GitHub 文档必须把网页内模型能力描述为“外接 API”或“外接模型 API”，不能把项目写成只绑定某一个 provider。
+- GitHub 文档必须说明外接 API 配置位置是仓库根目录 `.env.local`，从 `.env.example` 复制，并选择一个 provider block 填入自己的 key、base URL 和模型名。
+- 项目应支持多种外接 API 说明：OpenAI-compatible `/chat/completions` 网关、DeepSeek、OpenAI、Gemini、Claude。真实 key 只能放在本地 `.env.local`，不能提交。
+
 ## Review And User Edits
 
 - 默认模式下，生成的申请包、审核稿、DOCX/PDF、表单答案、作品集文字、作品说明、caption、checklist 和邮件草稿都必须先给用户审核。

@@ -2,6 +2,57 @@
 
 This file records recurring bug fixes, error investigations, optimization passes, and verification results so project maintenance is not only preserved in chat history.
 
+## 2026-05-19 18:08 CST
+
+### Scope
+
+- Clarified external API setup for local users and GitHub users.
+- Updated UI wording to describe generic external API automation instead of naming one provider in public-facing text.
+- Added a macOS local launcher that starts the app on `127.0.0.1:3000` and opens the browser.
+
+### Issues Found
+
+- Public UI copy overemphasized Codex and one external provider, which made the app look less provider-agnostic than the implementation.
+- README and `.env.example` did not clearly tell GitHub users where to configure external APIs or how to choose among multiple API types.
+- Application package cards displayed the full package path directly under the application number, which looked like a large identifier.
+
+### Root Cause
+
+- Existing copy predated the generic external API workflow and mixed provider-specific examples into user-facing panels.
+- Application package display used raw `packagePath` as primary visible text.
+
+### Changes
+
+- Reworded header, sidebar, settings, README, automation docs, Codex workflow docs, and Codex automation export to use generic external API language.
+- Updated `.env.example` to lead with an OpenAI-compatible gateway block and keep provider-specific examples.
+- Collapsed application package file paths behind a “文件位置” disclosure and kept visible identifiers short.
+- Added `启动本地项目.command`.
+
+### Files Changed
+
+- `.env.example`
+- `README.md`
+- `docs/automation.md`
+- `docs/codex-workflow.md`
+- `docs/fix-log.md`
+- `generated/codex/automation-instructions.md`
+- `src/app/components/Studio.tsx`
+- `src/app/components/StudioChrome.tsx`
+- `src/app/globals.css`
+- `src/lib/codexWorkspace.ts`
+- `启动本地项目.command`
+
+### Verification
+
+```bash
+npm run typecheck
+zsh -n 启动本地项目.command
+```
+
+### Remaining Notes
+
+- `.env.local`, SQLite databases, user materials, and generated output remain ignored by Git and should not be pushed.
+
 ## 2026-05-19 14:28 CST
 
 ### Scope

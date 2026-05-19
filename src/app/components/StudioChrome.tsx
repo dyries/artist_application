@@ -37,7 +37,7 @@ export function StudioHeader({ busy, isBusy, refresh, prepareCodexContext, saveA
       <div className="topbar-inner">
         <div className="brand">
           <h1>Artist Application Studio</h1>
-          <p>AI 艺术家申请工作区：你放材料，Codex 整理、搜索、写作、制作申请包并在确认后投递</p>
+          <p>AI 艺术家申请工作区：可外接 API 生成草稿，也可交给 Codex 做复杂核验、文件制作和确认后投递</p>
         </div>
         <div className="toolbar">
           <button className="secondary" onClick={refresh} disabled={isBusy}>刷新</button>
@@ -101,14 +101,14 @@ export function StudioSidebar({
       </section>
 
       <section className="panel stack">
-        <h2>Codex 自动化</h2>
-        <p className="muted">点击一次刷新后，Codex 自动化会按当前项目规则执行搜索、核验、双语审核、作品集制作、最终归档和确认后投递。</p>
+        <h2>Codex 工作流</h2>
+        <p className="muted">需要更复杂的网页核验、材料理解、作品集制作或确认后投递时，先刷新上下文，再让 Codex 读取当前项目状态继续处理。</p>
         <button onClick={prepareCodexContext} disabled={isBusy}>{busy === "prepare-codex" ? "刷新中" : "保存并刷新上下文"}</button>
       </section>
 
       <section className="panel stack">
-        <h2>项目内 AI 自动化</h2>
-        <p className="muted">配置 DeepSeek、OpenAI、Gemini、Claude 或其他兼容 API 后，可以在网页内生成报告、核验手动机会链接，并生成申请包草稿。</p>
+        <h2>外接 API 自动化</h2>
+        <p className="muted">读取 .env.local 中的外接模型配置，在网页内生成报告、核验手动机会链接，并生成申请包草稿。</p>
         <button onClick={runProjectAiAutomation} disabled={isBusy}>
           {busy === "project-ai" ? "运行中" : "运行项目自动化"}
         </button>

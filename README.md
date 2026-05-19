@@ -10,7 +10,7 @@ Artist Application AI Workspace stores artist profiles, source material indexes,
 - Node.js 20 或更新版本：用于运行 Next.js 应用。
 - npm：随 Node.js 安装，用于安装依赖和运行脚本。
 - Codex：可选；需要使用 Codex 自动化时安装并登录 Codex。
-- 外部模型 API key：可选；只在使用项目内模型自动化时需要，例如 DeepSeek、OpenAI、Gemini、Claude 或兼容 API。
+- 外接 API key：可选；只在使用网页内 API 自动化时需要。可以使用 OpenAI-compatible 网关，也可以配置 DeepSeek、OpenAI、Gemini、Claude 等单独 provider。
 
 `npm install` 会安装项目需要的 Node 依赖，包括 Next.js、React、SQLite 绑定、图片元数据处理和校验库。
 
@@ -27,7 +27,7 @@ Artist Application AI Workspace stores artist profiles, source material indexes,
 - Node.js 20 or newer: run the Next.js app.
 - npm: install dependencies and run scripts.
 - Codex: optional; required only for Codex automation.
-- External model API keys: optional; required only for in-app model automation, such as DeepSeek, OpenAI, Gemini, Claude, or compatible APIs.
+- External API keys: optional; required only for in-app API automation. You can use an OpenAI-compatible gateway or configure providers such as DeepSeek, OpenAI, Gemini, and Claude.
 
 `npm install` installs the required Node dependencies, including Next.js, React, SQLite bindings, image metadata processing, and validation libraries.
 
@@ -45,15 +45,15 @@ npm install
 npm run dev
 ```
 
-开发服务器启动后，终端会显示访问地址；端口以终端输出为准。
+开发服务器启动后，终端会显示访问地址；端口以终端输出为准。macOS 用户也可以双击 `启动本地项目.command`，它会固定使用 `http://127.0.0.1:3000` 并在启动成功后自动打开浏览器。
 
 ## 自动化选择
 
 使用者可以按自己的工具和预算选择自动化方式：
 
 - 只用 Codex：在 Codex 中打开这个仓库，让 Codex 读取 `generated/codex/artist-snapshot.json` 和 `generated/codex/automation-instructions.md`。这种方式不需要在项目里配置外部模型 API key。
-- 只用项目内模型：在 `.env.local` 配置 DeepSeek、OpenAI、Gemini、Claude 或兼容 API，在网页内生成报告、核验手动机会链接和生成草稿。
-- Codex + 项目内模型：网页内模型负责快速草稿和初步整理，Codex 负责复杂材料理解、实时搜索、机会核验、申请包制作和用户确认后的投递步骤。
+- 只用外接 API：在 `.env.local` 配置 OpenAI-compatible 网关或单独 provider，在网页内生成报告、核验手动机会链接和生成草稿。
+- Codex + 外接 API：网页内 API 负责快速草稿和初步整理，Codex 负责复杂材料理解、实时搜索、机会核验、申请包制作和用户确认后的投递步骤。
 
 使用者也可以设置每轮最多处理数量，范围是 1-100。提交审核模式可以选择“必须审核后提交”“可跳过审核准备”或“直接申请”。费用接受度默认保守（免费/强资助优先），也可以改成接受少量申请费或允许付费项目进入候选池但标红风险。机会等级默认高等级优先，也可以改成平衡或更开放。直接申请代表使用者对当前运行批次做了预授权；遇到付款、登录、验证码、敏感授权、资格不明、费用不明或材料缺失时仍必须暂停。
 
@@ -68,8 +68,8 @@ npm run dev
 Users can choose the automation setup that fits their tools and budget:
 
 - Codex only: open this repository in Codex and ask Codex to read `generated/codex/artist-snapshot.json` and `generated/codex/automation-instructions.md`. This mode does not require external model API keys in the project.
-- In-app model only: configure DeepSeek, OpenAI, Gemini, Claude, or a compatible API in `.env.local` and use the web app to generate reports, check manually added opportunity links, and draft packages.
-- Codex + in-app model: use the web app model for fast drafts and first-pass organization, then use Codex for complex material interpretation, live research, opportunity verification, package production, and user-confirmed submission steps.
+- In-app API only: configure an OpenAI-compatible gateway or a provider-specific API in `.env.local` and use the web app to generate reports, check manually added opportunity links, and draft packages.
+- Codex + in-app API: use the web app API for fast drafts and first-pass organization, then use Codex for complex material interpretation, live research, opportunity verification, package production, and user-confirmed submission steps.
 
 Users can set the maximum number of opportunities per run from 1 to 100. Submission approval mode can be set to review required, review optional, or direct apply. Fee preference defaults to conservative, prioritizing free or strongly funded opportunities, but can be changed to allow modest application fees or paid opportunities with explicit risk labeling. Opportunity tier preference defaults to high-tier first and can be changed to balanced or open. Direct apply is pre-authorization for the current run batch; automation must still pause for payment, login, captcha, sensitive authorization, unclear eligibility, unclear fees, or missing required materials.
 
@@ -119,9 +119,9 @@ cp .env.example .env.local
 npm run dev
 ```
 
-可以只用 Codex 自动化，也可以只配置项目内 AI 自动化，或两者结合使用。项目内 AI 自动化需要通过 `.env.local` 配置 DeepSeek、OpenAI、Gemini、Claude 或其他兼容接口 key。不要把 `.env.local` 或任何真实 key 提交到 Git。
+可以只用 Codex 自动化，也可以只配置外接 API 自动化，或两者结合使用。外接 API 自动化在 `.env.local` 配置，位置就在仓库根目录；复制 `.env.example` 后任选一个 provider block 填写自己的 key、base URL 和模型名。支持多种 API：OpenAI-compatible `/chat/completions` 网关、DeepSeek、OpenAI、Gemini、Claude。不要把 `.env.local` 或任何真实 key 提交到 Git。
 
-Users can choose Codex automation, in-app model automation, or both. In-app model automation requires keys in `.env.local`; never commit real credentials.
+Users can choose Codex automation, in-app API automation, or both. External API settings live in `.env.local` at the repository root. Copy `.env.example`, choose one provider block, and fill in your own key, base URL, and model name. Multiple API types are supported: OpenAI-compatible `/chat/completions` gateways, DeepSeek, OpenAI, Gemini, and Claude. Never commit real credentials.
 
 ## 常用检查
 

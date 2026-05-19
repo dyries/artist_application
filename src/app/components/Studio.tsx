@@ -665,11 +665,20 @@ export default function Studio() {
           {tab === "submissions" && (
             <div className="panel stack">
               <h2>申请包</h2>
-              {data.applications.length === 0 && <p className="muted">Codex 自动化准备出的申请草稿、材料清单和文件路径会显示在这里。需要审核时，表单答案、bio、statement、项目文字、作品说明和 checklist 都应提供中英对照；最终提交版只使用对方要求的语言。后续投递按当前提交审核模式执行。</p>}
+              {data.applications.length === 0 && <p className="muted">外接 API 或 Codex 准备出的申请草稿、材料清单和文件位置会显示在这里。需要审核时，表单答案、bio、statement、项目文字、作品说明和 checklist 都应提供中英对照；最终提交版只使用对方要求的语言。后续投递按当前提交审核模式执行。</p>}
               {data.applications.map((app) => (
                 <div className="card stack" key={app.id}>
-                  <h3>申请包 #{app.id}</h3>
-                  <p className="muted">{app.packagePath}</p>
+                  <h3>申请编号 #{app.id}</h3>
+                  <div className="meta">
+                    <span className="badge">机会编号 #{app.opportunityId}</span>
+                    {app.packagePath && <span className="badge">文件夹 {app.packagePath.split(/[\\/]/).pop()}</span>}
+                  </div>
+                  {app.packagePath && (
+                    <details className="file-location">
+                      <summary>文件位置</summary>
+                      <p>{app.packagePath}</p>
+                    </details>
+                  )}
                   <Area label="English Draft" value={app.draftEn} onChange={() => undefined} />
                   <Area label="Checklist" value={app.checklist} onChange={() => undefined} />
                   {app.submissionLog && <p className="notice">{app.submissionLog}</p>}
@@ -681,7 +690,7 @@ export default function Studio() {
           {tab === "settings" && (
             <div className="panel stack">
               <h2>自动化</h2>
-              <p>这个项目保存资料、结果和自动化偏好；使用者可以选择只用 Codex、只用项目内模型，或两者结合。上下文文件会把最新偏好作为执行标准。</p>
+              <p>这个项目保存资料、结果和自动化偏好；可以只用外接 API 自动化，也可以只用 Codex，或两者结合。上下文文件会把最新偏好作为执行标准。</p>
               <div className="card stack">
                 <h3>执行标准</h3>
                 <ul className="compact-list">
@@ -697,26 +706,24 @@ export default function Studio() {
                 </ul>
               </div>
               <div className="card stack">
-                <h3>Codex 自动化读取</h3>
-                <p className="muted">点击“刷新 Codex 上下文”后，会生成当前资料快照和自动化说明：</p>
+                <h3>Codex 工作流读取</h3>
+                <p className="muted">点击“刷新 Codex 上下文”后，会生成当前资料快照和自动化说明，供 Codex 继续做复杂核验、材料分析、文件制作和确认后投递：</p>
                 <pre>{`generated/codex/artist-snapshot.json
 generated/codex/automation-instructions.md`}</pre>
               </div>
               <div className="card stack">
-                <h3>项目内 AI 自动化</h3>
-                <p className="muted">如果配置了 DeepSeek、OpenAI、Gemini、Claude 或其他兼容 API，项目可以自己调用模型生成自动化报告、核验手动机会链接和申请包草稿；外部模型不会自动提交材料。</p>
-                <pre>{`DEEPSEEK_API_KEY=你的 key
-ARTIST_STUDIO_AI_PROVIDER=deepseek
-ARTIST_STUDIO_AI_MODEL=deepseek-chat
-
-GEMINI_API_KEY=你的 key
-ANTHROPIC_API_KEY=你的 key`}</pre>
+                <h3>外接 API 自动化</h3>
+                <p className="muted">如果在 .env.local 配置了外接模型 API，网页可以直接调用模型生成自动化报告、核验手动机会链接和申请包草稿；外接模型不会自动提交材料。</p>
+                <pre>{`ARTIST_STUDIO_AI_API_KEY=你的 key
+ARTIST_STUDIO_AI_PROVIDER=openai-compatible
+ARTIST_STUDIO_AI_BASE_URL=https://你的接口地址
+ARTIST_STUDIO_AI_MODEL=你的模型名`}</pre>
                 <button onClick={runProjectAiAutomation} disabled={isBusy}>
                   {busy === "project-ai" ? "运行中" : "运行项目自动化"}
                 </button>
               </div>
               <div className="card stack">
-                <h3>Codex 自动化写回</h3>
+                <h3>自动化写回</h3>
                 <p className="muted">自动化可以把整理后的资料、机会、筛选报告、申请包和投递记录写回数据库与生成目录：</p>
                 <pre>{`data/artist.sqlite
 generated/reports/
