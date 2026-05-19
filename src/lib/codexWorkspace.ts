@@ -42,7 +42,7 @@ export function exportCodexWorkspace() {
       automationBoundaryRule:
         "Users may choose Codex automation, project-internal external-model automation, or both. Codex automation runs inside Codex and must not depend on DeepSeek, Gemini, Claude, OpenAI API keys, or any project external API key. Project-internal external-model automation uses providers configured in .env.local when available. Both paths must respect user review and explicit confirmation boundaries.",
       maintenanceRule:
-        "Whenever the user adds, changes, or corrects any workflow, application-package, material, or automation rule in conversation, update both project rules and Codex automation rules immediately. Application package rules must always follow the newest user-provided rules. Each code change must remove obsolete code, wording, interfaces, and rules unless explicitly kept for compatibility and documented as such.",
+        "Whenever the user adds, changes, or corrects any workflow, application-package, material, or automation rule in conversation, update both project rules and Codex automation rules immediately. Application package rules must always follow the newest user-provided rules. Each code change must remove obsolete code, wording, interfaces, and rules unless explicitly kept for compatibility and documented as such. All future changes must be synchronized across the local project source/docs, Codex automation instructions/templates, and the GitHub remote repository; after pushing, confirm the local worktree is clean and remote main contains the latest commit.",
       userReviewEditRule:
         "User-facing application packages and review files are editable by the user. If the user edits any review draft, package file, DOCX/PDF, form answer, portfolio text, caption, checklist, or email draft, Codex automation must treat the edited file as the new source of truth and update downstream final submission files, database records, reports, and archive indexes accordingly. If the final submission language is English but the user edits the Chinese review draft, understand the Chinese edit as the user's content intent and synchronize it into the final English submission draft without inserting Chinese text into the English final file. Do not continue from stale pre-edit drafts.",
       manualOpportunityLinkRule:
@@ -119,6 +119,7 @@ Use this workspace as the source of truth for an AI-led artist application workf
 - Every code change must remove or replace obsolete code, obsolete wording, old interfaces, and superseded rules. Do not leave dead branches or misleading legacy behavior behind.
 - If an old interface or file is intentionally kept for compatibility, document the compatibility reason clearly; otherwise remove it.
 - If project rules and Codex automation rules conflict, follow the newest user instruction and synchronize both rule sets immediately.
+- All future changes must be synchronized across the local project source/docs, Codex automation instructions/templates, and the GitHub remote repository. After pushing, confirm the local worktree is clean and remote \`main\` contains the latest commit.
 
 ## User Review And Edit Rules
 
