@@ -9,13 +9,21 @@ npm install
 npm run dev
 ```
 
-打开 `http://localhost:3000`。
-
-macOS 上也可以双击项目根目录里的 `启动 Artist Studio.command`，它会用固定地址启动并打开：
+开发服务器启动后，终端会显示可访问的本地地址。Next.js 默认通常是：
 
 ```text
-http://localhost:3020
+http://localhost:3000
 ```
+
+如果该端口已被占用，Next.js 可能会使用其他端口，请以终端输出为准。
+
+本仓库额外提供了一个 macOS 便捷启动脚本：
+
+```text
+启动 Artist Studio.command
+```
+
+这个脚本只适用于 macOS，会尝试用固定端口 `3020` 启动并打开浏览器。Windows、Linux 或不使用该脚本时，直接使用 `npm run dev`。
 
 ## 长期项目文档
 
@@ -36,23 +44,25 @@ http://localhost:3020
 - `generated/applications/`：自动化生成的申请包。
 - `generated/final-submissions/`：最终提交版归档。
 
-## GitHub 发布和给别人使用
+## 安装和使用
 
-可以上传到 GitHub 给别人 clone 使用，但只提交代码、规则、模板和 `.gitkeep` 占位文件，不提交个人材料、生成结果、SQLite 数据库或 API key。
+仓库只包含代码、规则、模板和 `.gitkeep` 占位文件。个人材料、生成结果、SQLite 数据库、备份和 API key 不应提交。
 
 默认 `.gitignore` 已经忽略：
 
 ```text
+.env
+.env.*
+!.env.example
 data/*.sqlite
 data/*.sqlite-*
 artist-assets/inbox/**
 artist-assets/source-materials/**
 artist-assets/works/**
 generated/**
-.env.local
 ```
 
-别人 clone 后的基本使用方式：
+克隆后安装并启动：
 
 ```bash
 npm install
@@ -60,7 +70,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-如果只用 Codex 自动化，可以不配置外部模型 API；如果要用项目内 AI 自动化，每个使用者都在自己的 `.env.local` 里填写自己的 DeepSeek、OpenAI、Gemini、Claude 或其他兼容接口 key。项目不能内置、共享或提交任何人的 API key。
+如果只用 Codex 自动化，可以不配置外部模型 API。项目内 AI 自动化需要在本机 `.env.local` 中配置自己的 DeepSeek、OpenAI、Gemini、Claude 或其他兼容接口 key。不要把 `.env.local` 或任何真实 key 提交到 Git。
 
 ## 常用检查
 
