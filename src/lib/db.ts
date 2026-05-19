@@ -1,0 +1,749 @@
+import fs from "node:fs";
+import Database from "better-sqlite3";
+import { dataDir, dbPath } from "./paths";
+import type {
+  ActivityLog,
+  ArtistProfile,
+  Application,
+  CvEntry,
+  Opportunity,
+  PackageManifest,
+  SourceMaterial,
+  Work
+} from "@/types/domain";
+
+let db: Database.Database | null = null;
+
+type ReadArtistDataOptions = {
+  materialLimit?: number;
+  materialContentLimit?: number;
+  opportunityLimit?: number;
+  opportunityRawContentLimit?: number;
+  applicationLimit?: number;
+};
+
+type ArtistPayload = {
+  profile: ArtistProfile;
+  works: Work[];
+  cv: CvEntry[];
+  materialSources: Pick<SourceMaterial, "id" | "kind" | "title" | "content" | "fileName" | "filePath" | "mimeType">[];
+};
+
+export function getDb() {
+  if (!db) {
+    fs.mkdirSync(dataDir, { recursive: true });
+    db = new Database(dbPath);
+    db.pragma("journal_mode = WAL");
+    migrate(db);
+  }
+  return db;
+}
+
+function migrate(database: Database.Database) {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS artist_profile (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      name TEXT NOT NULL DEFAULT '',
+      name_zh TEXT NOT NULL DEFAULT '',
+      name_en TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '',
+      location TEXT NOT NULL DEFAULT '',
+      location_zh TEXT NOT NULL DEFAULT '',
+      location_en TEXT NOT NULL DEFAULT '',
+      website TEXT NOT NULL DEFAULT '',
+      instagram TEXT NOT NULL DEFAULT '',
+      bio_zh_short TEXT NOT NULL DEFAULT '',
+      bio_zh_medium TEXT NOT NULL DEFAULT '',
+      bio_zh_long TEXT NOT NULL DEFAULT '',
+      bio_en_short TEXT NOT NULL DEFAULT '',
+      bio_en_medium TEXT NOT NULL DEFAULT '',
+      bio_en_long TEXT NOT NULL DEFAULT '',
+      statement_zh TEXT NOT NULL DEFAULT '',
+      statement_en TEXT NOT NULL DEFAULT '',
+      preferences TEXT NOT NULL DEFAULT '',
+      preferences_zh TEXT NOT NULL DEFAULT '',
+      preferences_en TEXT NOT NULL DEFAULT '',
+      application_region TEXT NOT NULL DEFAULT 'worldwide',
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS works (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL DEFAULT '',
+      title_zh TEXT NOT NULL DEFAULT '',
+      title_en TEXT NOT NULL DEFAULT '',
+      year TEXT NOT NULL DEFAULT '',
+      medium TEXT NOT NULL DEFAULT '',
+      medium_zh TEXT NOT NULL DEFAULT '',
+      medium_en TEXT NOT NULL DEFAULT '',
+      dimensions TEXT NOT NULL DEFAULT '',
+      dimensions_zh TEXT NOT NULL DEFAULT '',
+      dimensions_en TEXT NOT NULL DEFAULT '',
+      image_path TEXT NOT NULL DEFAULT '',
+      description_zh TEXT NOT NULL DEFAULT '',
+      description_en TEXT NOT NULL DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS cv_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category TEXT NOT NULL DEFAULT 'exhibition',
+      category_zh TEXT NOT NULL DEFAULT '',
+      category_en TEXT NOT NULL DEFAULT '',
+      year TEXT NOT NULL DEFAULT '',
+      title TEXT NOT NULL DEFAULT '',
+      title_zh TEXT NOT NULL DEFAULT '',
+      title_en TEXT NOT NULL DEFAULT '',
+      organization TEXT NOT NULL DEFAULT '',
+      organization_zh TEXT NOT NULL DEFAULT '',
+      organization_en TEXT NOT NULL DEFAULT '',
+      location TEXT NOT NULL DEFAULT '',
+      location_zh TEXT NOT NULL DEFAULT '',
+      location_en TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      notes_zh TEXT NOT NULL DEFAULT '',
+      notes_en TEXT NOT NULL DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS material_sources (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL DEFAULT 'other',
+      title TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL DEFAULT '',
+      file_name TEXT NOT NULL DEFAULT '',
+      file_path TEXT NOT NULL DEFAULT '',
+      mime_type TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS opportunities (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL DEFAULT '',
+      organization TEXT NOT NULL DEFAULT '',
+      url TEXT NOT NULL UNIQUE,
+      location TEXT NOT NULL DEFAULT '',
+      deadline TEXT NOT NULL DEFAULT '',
+      fee TEXT NOT NULL DEFAULT '',
+      funding TEXT NOT NULL DEFAULT '',
+      eligibility TEXT NOT NULL DEFAULT '',
+      materials TEXT NOT NULL DEFAULT '',
+      submission_method TEXT NOT NULL DEFAULT 'unknown',
+      summary TEXT NOT NULL DEFAULT '',
+      score INTEGER,
+      risks TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'new',
+      source TEXT NOT NULL DEFAULT '',
+      raw_content TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS applications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      opportunity_id INTEGER NOT NULL,
+      draft_zh TEXT NOT NULL DEFAULT '',
+      draft_en TEXT NOT NULL DEFAULT '',
+      checklist TEXT NOT NULL DEFAULT '',
+      selected_works TEXT NOT NULL DEFAULT '',
+      package_path TEXT NOT NULL DEFAULT '',
+      submission_log TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(opportunity_id) REFERENCES opportunities(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_material_sources_updated ON material_sources(updated_at DESC, id DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_material_sources_file_path_unique
+      ON material_sources(file_path)
+      WHERE file_path <> '';
+    CREATE INDEX IF NOT EXISTS idx_opportunities_updated ON opportunities(updated_at DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_opportunities_source_updated ON opportunities(source, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_applications_updated ON applications(updated_at DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_applications_opportunity ON applications(opportunity_id, updated_at DESC);
+  `);
+
+  database
+    .prepare("INSERT OR IGNORE INTO artist_profile (id) VALUES (1)")
+    .run();
+
+  addColumn(database, "material_sources", "file_name", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "material_sources", "file_path", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "material_sources", "mime_type", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "artist_profile", "name_zh", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "artist_profile", "name_en", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "artist_profile", "location_zh", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "artist_profile", "location_en", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "artist_profile", "preferences_zh", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "artist_profile", "preferences_en", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "artist_profile", "application_region", "TEXT NOT NULL DEFAULT 'worldwide'");
+  addColumn(database, "works", "title_zh", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "works", "title_en", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "works", "medium_zh", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "works", "medium_en", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "works", "dimensions_zh", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "works", "dimensions_en", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "cv_entries", "category_zh", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "cv_entries", "category_en", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "cv_entries", "title_zh", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "cv_entries", "title_en", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "cv_entries", "organization_zh", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "cv_entries", "organization_en", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "cv_entries", "location_zh", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "cv_entries", "location_en", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "cv_entries", "notes_zh", "TEXT NOT NULL DEFAULT ''");
+  addColumn(database, "cv_entries", "notes_en", "TEXT NOT NULL DEFAULT ''");
+
+  runMigration(database, 1, "activity log", () => {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS activity_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action TEXT NOT NULL,
+        entity_type TEXT NOT NULL DEFAULT '',
+        entity_id TEXT NOT NULL DEFAULT '',
+        summary TEXT NOT NULL DEFAULT '',
+        metadata TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at DESC, id DESC);
+      CREATE INDEX IF NOT EXISTS idx_activity_log_entity ON activity_log(entity_type, entity_id, created_at DESC);
+    `);
+  });
+
+  runMigration(database, 2, "package manifests", () => {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS package_manifests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        application_id INTEGER,
+        opportunity_id INTEGER,
+        package_path TEXT NOT NULL,
+        manifest_path TEXT NOT NULL UNIQUE,
+        manifest_version INTEGER NOT NULL DEFAULT 1,
+        status TEXT NOT NULL DEFAULT 'draft',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(application_id) REFERENCES applications(id),
+        FOREIGN KEY(opportunity_id) REFERENCES opportunities(id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_package_manifests_updated ON package_manifests(updated_at DESC, id DESC);
+      CREATE INDEX IF NOT EXISTS idx_package_manifests_opportunity ON package_manifests(opportunity_id, updated_at DESC);
+    `);
+  });
+}
+
+function addColumn(database: Database.Database, table: string, column: string, definition: string) {
+  const columns = database.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!columns.some((item) => item.name === column)) {
+    database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
+function runMigration(database: Database.Database, version: number, name: string, apply: () => void) {
+  const existing = database.prepare("SELECT version FROM schema_migrations WHERE version = ?").get(version);
+  if (existing) return;
+  const tx = database.transaction(() => {
+    apply();
+    database.prepare("INSERT INTO schema_migrations (version, name) VALUES (?, ?)").run(version, name);
+  });
+  tx();
+}
+
+const mapProfile = (row: any): ArtistProfile => ({
+  id: row.id,
+  name: row.name,
+  nameZh: row.name_zh || row.name,
+  nameEn: row.name_en || row.name,
+  email: row.email,
+  location: row.location,
+  locationZh: row.location_zh || row.location,
+  locationEn: row.location_en || row.location,
+  website: row.website,
+  instagram: row.instagram,
+  bioZhShort: row.bio_zh_short,
+  bioZhMedium: row.bio_zh_medium,
+  bioZhLong: row.bio_zh_long,
+  bioEnShort: row.bio_en_short,
+  bioEnMedium: row.bio_en_medium,
+  bioEnLong: row.bio_en_long,
+  statementZh: row.statement_zh,
+  statementEn: row.statement_en,
+  preferences: row.preferences,
+  preferencesZh: row.preferences_zh || row.preferences,
+  preferencesEn: row.preferences_en || row.preferences,
+  applicationRegion: row.application_region || "worldwide",
+  updatedAt: row.updated_at
+});
+
+const mapWork = (row: any): Work => ({
+  id: row.id,
+  title: row.title,
+  titleZh: row.title_zh || row.title,
+  titleEn: row.title_en || row.title,
+  year: row.year,
+  medium: row.medium,
+  mediumZh: row.medium_zh || row.medium,
+  mediumEn: row.medium_en || row.medium,
+  dimensions: row.dimensions,
+  dimensionsZh: row.dimensions_zh || row.dimensions,
+  dimensionsEn: row.dimensions_en || row.dimensions,
+  imagePath: row.image_path,
+  descriptionZh: row.description_zh,
+  descriptionEn: row.description_en
+});
+
+const mapCv = (row: any): CvEntry => ({
+  id: row.id,
+  category: row.category,
+  categoryZh: row.category_zh || row.category,
+  categoryEn: row.category_en || row.category,
+  year: row.year,
+  title: row.title,
+  titleZh: row.title_zh || row.title,
+  titleEn: row.title_en || row.title,
+  organization: row.organization,
+  organizationZh: row.organization_zh || row.organization,
+  organizationEn: row.organization_en || row.organization,
+  location: row.location,
+  locationZh: row.location_zh || row.location,
+  locationEn: row.location_en || row.location,
+  notes: row.notes,
+  notesZh: row.notes_zh || row.notes,
+  notesEn: row.notes_en || row.notes
+});
+
+const mapSourceMaterial = (row: any): SourceMaterial => ({
+  id: row.id,
+  kind: row.kind,
+  title: row.title,
+  content: row.content,
+  fileName: row.file_name,
+  filePath: row.file_path,
+  mimeType: row.mime_type,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+});
+
+const mapOpportunity = (row: any): Opportunity => ({
+  id: row.id,
+  title: row.title,
+  organization: row.organization,
+  url: row.url,
+  location: row.location,
+  deadline: row.deadline,
+  fee: row.fee,
+  funding: row.funding,
+  eligibility: row.eligibility,
+  materials: row.materials,
+  submissionMethod: row.submission_method,
+  summary: row.summary,
+  score: row.score,
+  risks: row.risks,
+  status: row.status,
+  source: row.source,
+  rawContent: row.raw_content,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+});
+
+const mapApplication = (row: any): Application => ({
+  id: row.id,
+  opportunityId: row.opportunity_id,
+  draftZh: row.draft_zh,
+  draftEn: row.draft_en,
+  checklist: row.checklist,
+  selectedWorks: row.selected_works,
+  packagePath: row.package_path,
+  submissionLog: row.submission_log,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+});
+
+const mapActivityLog = (row: any): ActivityLog => ({
+  id: row.id,
+  action: row.action,
+  entityType: row.entity_type,
+  entityId: row.entity_id,
+  summary: row.summary,
+  metadata: row.metadata,
+  createdAt: row.created_at
+});
+
+const mapPackageManifest = (row: any): PackageManifest => ({
+  id: row.id,
+  applicationId: row.application_id,
+  opportunityId: row.opportunity_id,
+  packagePath: row.package_path,
+  manifestPath: row.manifest_path,
+  manifestVersion: row.manifest_version,
+  status: row.status,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+});
+
+function positiveLimit(value: number | undefined, fallback: number, max: number) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(1, Math.min(Math.trunc(value as number), max));
+}
+
+function contentLimit(value: number | undefined, fallback: number, max: number) {
+  if (value === 0) return 0;
+  return positiveLimit(value, fallback, max);
+}
+
+function countRows(database: Database.Database, table: string, where = "1=1") {
+  const row = database.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE ${where}`).get() as { count: number };
+  return row.count;
+}
+
+export function readArtistData(options: ReadArtistDataOptions = {}) {
+  const database = getDb();
+  const materialLimit = positiveLimit(options.materialLimit, 120, 1000);
+  const materialContentLimit = contentLimit(options.materialContentLimit, 12000, 50000);
+  const opportunityLimit = positiveLimit(options.opportunityLimit, 200, 2000);
+  const opportunityRawContentLimit = contentLimit(options.opportunityRawContentLimit, 4000, 30000);
+  const applicationLimit = positiveLimit(options.applicationLimit, 100, 1000);
+  const materialContentSql = materialContentLimit > 0 ? "substr(content, 1, @materialContentLimit) AS content" : "'' AS content";
+  const opportunityRawSql = opportunityRawContentLimit > 0 ? "substr(raw_content, 1, @opportunityRawContentLimit) AS raw_content" : "'' AS raw_content";
+
+  return {
+    profile: mapProfile(database.prepare("SELECT * FROM artist_profile WHERE id = 1").get()),
+    works: database.prepare(`
+      SELECT * FROM works
+      WHERE trim(title || title_zh || title_en || year || medium || medium_zh || medium_en || dimensions || dimensions_zh || dimensions_en || image_path || description_zh || description_en) <> ''
+      ORDER BY year DESC, id DESC
+    `).all().map(mapWork),
+    cv: database.prepare(`
+      SELECT * FROM cv_entries
+      WHERE trim(year || title || title_zh || title_en || organization || organization_zh || organization_en || location || location_zh || location_en || notes || notes_zh || notes_en) <> ''
+      ORDER BY year DESC, id DESC
+    `).all().map(mapCv),
+    materialSources: database.prepare(`
+      SELECT id, kind, title, ${materialContentSql}, file_name, file_path, mime_type, created_at, updated_at
+      FROM material_sources
+      WHERE trim(title || content || file_name || file_path) <> ''
+      ORDER BY updated_at DESC, id DESC
+      LIMIT @materialLimit
+    `).all({ materialLimit, materialContentLimit }).map(mapSourceMaterial),
+    opportunities: database.prepare(`
+      SELECT id, title, organization, url, location, deadline, fee, funding, eligibility, materials,
+        submission_method, summary, score, risks, status, source, ${opportunityRawSql}, created_at, updated_at
+      FROM opportunities
+      ORDER BY updated_at DESC, id DESC
+      LIMIT @opportunityLimit
+    `).all({ opportunityLimit, opportunityRawContentLimit }).map(mapOpportunity),
+    applications: database.prepare(`
+      SELECT *
+      FROM applications
+      ORDER BY updated_at DESC, id DESC
+      LIMIT @applicationLimit
+    `).all({ applicationLimit }).map(mapApplication),
+    counts: {
+      works: countRows(database, "works", "trim(title || title_zh || title_en || year || medium || medium_zh || medium_en || dimensions || dimensions_zh || dimensions_en || image_path || description_zh || description_en) <> ''"),
+      cv: countRows(database, "cv_entries", "trim(year || title || title_zh || title_en || organization || organization_zh || organization_en || location || location_zh || location_en || notes || notes_zh || notes_en) <> ''"),
+      materialSources: countRows(database, "material_sources", "trim(title || content || file_name || file_path) <> ''"),
+      opportunities: countRows(database, "opportunities"),
+      applications: countRows(database, "applications")
+    }
+  };
+}
+
+export function readMaterialFilePaths() {
+  return getDb()
+    .prepare("SELECT file_path FROM material_sources WHERE file_path <> ''")
+    .all()
+    .map((row: any) => row.file_path as string);
+}
+
+export function saveArtistData(payload: ArtistPayload) {
+  const database = getDb();
+  const tx = database.transaction(() => {
+    database.prepare(`
+      UPDATE artist_profile SET
+        name=@name, name_zh=@nameZh, name_en=@nameEn, email=@email,
+        location=@location, location_zh=@locationZh, location_en=@locationEn,
+        website=@website, instagram=@instagram,
+        bio_zh_short=@bioZhShort, bio_zh_medium=@bioZhMedium, bio_zh_long=@bioZhLong,
+        bio_en_short=@bioEnShort, bio_en_medium=@bioEnMedium, bio_en_long=@bioEnLong,
+        statement_zh=@statementZh, statement_en=@statementEn,
+        preferences=@preferences, preferences_zh=@preferencesZh, preferences_en=@preferencesEn,
+        application_region=@applicationRegion,
+        updated_at=CURRENT_TIMESTAMP
+      WHERE id=1
+    `).run(payload.profile);
+
+    const updateWork = database.prepare(`
+      UPDATE works SET title=@title, title_zh=@titleZh, title_en=@titleEn,
+        year=@year, medium=@medium, medium_zh=@mediumZh, medium_en=@mediumEn,
+        dimensions=@dimensions, dimensions_zh=@dimensionsZh, dimensions_en=@dimensionsEn,
+        image_path=@imagePath, description_zh=@descriptionZh, description_en=@descriptionEn
+      WHERE id=@id
+    `);
+    const insertWork = database.prepare(`
+      INSERT INTO works (
+        title, title_zh, title_en, year, medium, medium_zh, medium_en,
+        dimensions, dimensions_zh, dimensions_en, image_path, description_zh, description_en
+      )
+      VALUES (
+        @title, @titleZh, @titleEn, @year, @medium, @mediumZh, @mediumEn,
+        @dimensions, @dimensionsZh, @dimensionsEn, @imagePath, @descriptionZh, @descriptionEn
+      )
+    `);
+    for (const work of payload.works) {
+      if (work.id > 0 && updateWork.run(work).changes > 0) continue;
+      insertWork.run(work);
+    }
+
+    const updateCv = database.prepare(`
+      UPDATE cv_entries SET category=@category, category_zh=@categoryZh, category_en=@categoryEn,
+        year=@year, title=@title, title_zh=@titleZh, title_en=@titleEn,
+        organization=@organization, organization_zh=@organizationZh, organization_en=@organizationEn,
+        location=@location, location_zh=@locationZh, location_en=@locationEn,
+        notes=@notes, notes_zh=@notesZh, notes_en=@notesEn
+      WHERE id=@id
+    `);
+    const insertCv = database.prepare(`
+      INSERT INTO cv_entries (
+        category, category_zh, category_en, year, title, title_zh, title_en,
+        organization, organization_zh, organization_en, location, location_zh, location_en,
+        notes, notes_zh, notes_en
+      )
+      VALUES (
+        @category, @categoryZh, @categoryEn, @year, @title, @titleZh, @titleEn,
+        @organization, @organizationZh, @organizationEn, @location, @locationZh, @locationEn,
+        @notes, @notesZh, @notesEn
+      )
+    `);
+    for (const entry of payload.cv) {
+      if (entry.id > 0 && updateCv.run(entry).changes > 0) continue;
+      insertCv.run(entry);
+    }
+
+    const updateSource = database.prepare(`
+      UPDATE material_sources SET kind=@kind, title=@title, content=@content, file_name=@fileName,
+        file_path=@filePath, mime_type=@mimeType, updated_at=CURRENT_TIMESTAMP
+      WHERE id=@id
+    `);
+    const insertSource = database.prepare(`
+      INSERT OR IGNORE INTO material_sources (kind, title, content, file_name, file_path, mime_type, updated_at)
+      VALUES (@kind, @title, @content, @fileName, @filePath, @mimeType, CURRENT_TIMESTAMP)
+    `);
+    for (const source of payload.materialSources) {
+      if (source.id > 0 && updateSource.run(source).changes > 0) continue;
+      insertSource.run(source);
+    }
+  });
+
+  tx();
+  logActivity({
+    action: "artist_data_saved",
+    entityType: "artist_profile",
+    entityId: "1",
+    summary: "Artist profile, works, CV entries, and material sources were saved from the app.",
+    metadata: {
+      works: payload.works.length,
+      cv: payload.cv.length,
+      materialSources: payload.materialSources.length
+    }
+  });
+}
+
+export function deleteMaterialSource(id: number) {
+  const result = getDb().prepare("DELETE FROM material_sources WHERE id = ?").run(id);
+  return result.changes > 0;
+}
+
+export function deleteCvEntry(id: number) {
+  const result = getDb().prepare("DELETE FROM cv_entries WHERE id = ?").run(id);
+  return result.changes > 0;
+}
+
+export function deleteWorkEntry(id: number) {
+  const result = getDb().prepare("DELETE FROM works WHERE id = ?").run(id);
+  return result.changes > 0;
+}
+
+export function upsertOpportunity(input: Partial<Opportunity> & { url: string }) {
+  const database = getDb();
+  database.prepare(`
+    INSERT INTO opportunities (
+      title, organization, url, location, deadline, fee, funding, eligibility, materials,
+      submission_method, summary, score, risks, status, source, raw_content, updated_at
+    ) VALUES (
+      @title, @organization, @url, @location, @deadline, @fee, @funding, @eligibility, @materials,
+      @submissionMethod, @summary, @score, @risks, @status, @source, @rawContent, CURRENT_TIMESTAMP
+    )
+    ON CONFLICT(url) DO UPDATE SET
+      title = excluded.title,
+      organization = excluded.organization,
+      location = excluded.location,
+      deadline = excluded.deadline,
+      fee = excluded.fee,
+      funding = excluded.funding,
+      eligibility = excluded.eligibility,
+      materials = excluded.materials,
+      submission_method = excluded.submission_method,
+      summary = excluded.summary,
+      score = excluded.score,
+      risks = excluded.risks,
+      status = excluded.status,
+      source = excluded.source,
+      raw_content = excluded.raw_content,
+      updated_at = CURRENT_TIMESTAMP
+  `).run({
+    title: input.title ?? "",
+    organization: input.organization ?? "",
+    url: input.url,
+    location: input.location ?? "",
+    deadline: input.deadline ?? "",
+    fee: input.fee ?? "",
+    funding: input.funding ?? "",
+    eligibility: input.eligibility ?? "",
+    materials: input.materials ?? "",
+    submissionMethod: input.submissionMethod ?? "unknown",
+    summary: input.summary ?? "",
+    score: input.score ?? null,
+    risks: input.risks ?? "",
+    status: input.status ?? "new",
+    source: input.source ?? "",
+    rawContent: input.rawContent ?? ""
+  });
+  logActivity({
+    action: "opportunity_upserted",
+    entityType: "opportunity",
+    entityId: input.url,
+    summary: input.title || input.url,
+    metadata: { source: input.source ?? "", status: input.status ?? "new" }
+  });
+}
+
+export function addManualOpportunityLink(input: { url: string; title?: string; notes?: string }) {
+  const url = input.url.trim();
+  if (!/^https?:\/\/\S+$/i.test(url)) {
+    throw new Error("Opportunity URL must start with http:// or https://");
+  }
+  upsertOpportunity({
+    url,
+    title: input.title?.trim() || url,
+    summary: input.notes?.trim() || "User-provided opportunity link. Codex automation or project automation must verify eligibility, deadline, fees, funding, requirements, and submission method before recommending or preparing an application.",
+    source: "user-provided-link",
+    status: "new",
+    risks: "Unverified user-provided link. Must verify source page before applying."
+  });
+  logActivity({
+    action: "manual_opportunity_added",
+    entityType: "opportunity",
+    entityId: url,
+    summary: input.title?.trim() || url,
+    metadata: { notes: input.notes?.trim() || "" }
+  });
+}
+
+export function getOpportunity(id: number) {
+  const row = getDb().prepare("SELECT * FROM opportunities WHERE id = ?").get(id);
+  return row ? mapOpportunity(row) : null;
+}
+
+export function getApplication(id: number) {
+  const row = getDb().prepare("SELECT * FROM applications WHERE id = ?").get(id);
+  return row ? mapApplication(row) : null;
+}
+
+export function getApplicationByOpportunity(opportunityId: number) {
+  const row = getDb().prepare("SELECT * FROM applications WHERE opportunity_id = ? ORDER BY updated_at DESC LIMIT 1").get(opportunityId);
+  return row ? mapApplication(row) : null;
+}
+
+export function createApplication(input: Omit<Application, "id" | "createdAt" | "updatedAt">) {
+  const result = getDb().prepare(`
+    INSERT INTO applications (opportunity_id, draft_zh, draft_en, checklist, selected_works, package_path, submission_log)
+    VALUES (@opportunityId, @draftZh, @draftEn, @checklist, @selectedWorks, @packagePath, @submissionLog)
+  `).run(input);
+  const id = Number(result.lastInsertRowid);
+  logActivity({
+    action: "application_created",
+    entityType: "application",
+    entityId: String(id),
+    summary: input.packagePath,
+    metadata: { opportunityId: input.opportunityId }
+  });
+  return id;
+}
+
+export function logActivity(input: {
+  action: string;
+  entityType?: string;
+  entityId?: string | number;
+  summary?: string;
+  metadata?: unknown;
+}) {
+  const metadata = input.metadata === undefined ? "{}" : JSON.stringify(input.metadata);
+  getDb().prepare(`
+    INSERT INTO activity_log (action, entity_type, entity_id, summary, metadata)
+    VALUES (@action, @entityType, @entityId, @summary, @metadata)
+  `).run({
+    action: input.action,
+    entityType: input.entityType ?? "",
+    entityId: input.entityId === undefined ? "" : String(input.entityId),
+    summary: input.summary ?? "",
+    metadata
+  });
+}
+
+export function readActivityLog(limit = 100) {
+  return getDb()
+    .prepare("SELECT * FROM activity_log ORDER BY created_at DESC, id DESC LIMIT ?")
+    .all(positiveLimit(limit, 100, 1000))
+    .map(mapActivityLog);
+}
+
+export function recordPackageManifest(input: {
+  applicationId?: number | null;
+  opportunityId?: number | null;
+  packagePath: string;
+  manifestPath: string;
+  manifestVersion?: number;
+  status?: string;
+}) {
+  getDb().prepare(`
+    INSERT INTO package_manifests (
+      application_id, opportunity_id, package_path, manifest_path, manifest_version, status, updated_at
+    ) VALUES (
+      @applicationId, @opportunityId, @packagePath, @manifestPath, @manifestVersion, @status, CURRENT_TIMESTAMP
+    )
+    ON CONFLICT(manifest_path) DO UPDATE SET
+      application_id = excluded.application_id,
+      opportunity_id = excluded.opportunity_id,
+      package_path = excluded.package_path,
+      manifest_version = excluded.manifest_version,
+      status = excluded.status,
+      updated_at = CURRENT_TIMESTAMP
+  `).run({
+    applicationId: input.applicationId ?? null,
+    opportunityId: input.opportunityId ?? null,
+    packagePath: input.packagePath,
+    manifestPath: input.manifestPath,
+    manifestVersion: input.manifestVersion ?? 1,
+    status: input.status ?? "draft"
+  });
+  logActivity({
+    action: "package_manifest_recorded",
+    entityType: "package_manifest",
+    entityId: input.manifestPath,
+    summary: input.packagePath,
+    metadata: { opportunityId: input.opportunityId ?? null, applicationId: input.applicationId ?? null }
+  });
+}
+
+export function readPackageManifests(limit = 100) {
+  return getDb()
+    .prepare("SELECT * FROM package_manifests ORDER BY updated_at DESC, id DESC LIMIT ?")
+    .all(positiveLimit(limit, 100, 1000))
+    .map(mapPackageManifest);
+}

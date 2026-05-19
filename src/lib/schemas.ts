@@ -1,0 +1,73 @@
+import { z } from "zod";
+
+export const artistPayloadSchema = z.object({
+  profile: z.object({
+    id: z.number().default(1),
+    name: z.string().default(""),
+    nameZh: z.string().default(""),
+    nameEn: z.string().default(""),
+    email: z.string().default(""),
+    location: z.string().default(""),
+    locationZh: z.string().default(""),
+    locationEn: z.string().default(""),
+    website: z.string().default(""),
+    instagram: z.string().default(""),
+    bioZhShort: z.string().default(""),
+    bioZhMedium: z.string().default(""),
+    bioZhLong: z.string().default(""),
+    bioEnShort: z.string().default(""),
+    bioEnMedium: z.string().default(""),
+    bioEnLong: z.string().default(""),
+    statementZh: z.string().default(""),
+    statementEn: z.string().default(""),
+    preferences: z.string().default(""),
+    preferencesZh: z.string().default(""),
+    preferencesEn: z.string().default(""),
+    applicationRegion: z.string().default("worldwide"),
+    updatedAt: z.string().default("")
+  }),
+  works: z.array(z.object({
+    id: z.number().default(0),
+    title: z.string().default(""),
+    titleZh: z.string().default(""),
+    titleEn: z.string().default(""),
+    year: z.string().default(""),
+    medium: z.string().default(""),
+    mediumZh: z.string().default(""),
+    mediumEn: z.string().default(""),
+    dimensions: z.string().default(""),
+    dimensionsZh: z.string().default(""),
+    dimensionsEn: z.string().default(""),
+    imagePath: z.string().default(""),
+    descriptionZh: z.string().default(""),
+    descriptionEn: z.string().default("")
+  })).default([]),
+  cv: z.array(z.object({
+    id: z.number().default(0),
+    category: z.string().default("exhibition"),
+    categoryZh: z.string().default(""),
+    categoryEn: z.string().default(""),
+    year: z.string().default(""),
+    title: z.string().default(""),
+    titleZh: z.string().default(""),
+    titleEn: z.string().default(""),
+    organization: z.string().default(""),
+    organizationZh: z.string().default(""),
+    organizationEn: z.string().default(""),
+    location: z.string().default(""),
+    locationZh: z.string().default(""),
+    locationEn: z.string().default(""),
+    notes: z.string().default(""),
+    notesZh: z.string().default(""),
+    notesEn: z.string().default("")
+  })).default([]),
+  materialSources: z.array(z.object({
+    id: z.number().default(0),
+    kind: z.enum(["cv", "bio", "statement", "works", "portfolio", "other"]).default("other"),
+    title: z.string().default(""),
+    content: z.string().default(""),
+    fileName: z.string().default(""),
+    filePath: z.string().default(""),
+    mimeType: z.string().default("")
+  })).default([])
+});
