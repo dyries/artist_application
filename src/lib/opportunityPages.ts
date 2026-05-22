@@ -1,4 +1,5 @@
 import { upsertOpportunity } from "./db";
+import { mapWithConcurrency } from "./concurrency";
 import { assertPublicOpportunityUrl } from "./urlSecurity";
 import type { Opportunity } from "@/types/domain";
 
@@ -11,21 +12,22 @@ type PageFetchResult = {
   error?: string;
 };
 
-const maxOpportunityPagesPerRun = 12;
-const maxPageTextLength = 12000;
-const maxPageBytes = 1024 * 1024;
-const maxRedirects = 5;
+const maxOpportunityPagesPerRun = readPositiveInt("ARTIST_STUDIO_MAX_OPPORTUNITY_PAGES", 100);
+const maxPageTextLength = readPositiveInt("ARTIST_STUDIO_OPPORTUNITY_TEXT_LIMIT", 60000);
+const maxPageBytes = readPositiveInt("ARTIST_STUDIO_OPPORTUNITY_MAX_MB", 5) * 1024 * 1024;
+const maxRedirects = readPositiveInt("ARTIST_STUDIO_OPPORTUNITY_MAX_REDIRECTS", 8);
+const fetchTimeoutMs = readPositiveInt("ARTIST_STUDIO_OPPORTUNITY_TIMEOUT_MS", 30000);
+const fetchConcurrency = readPositiveInt("ARTIST_STUDIO_OPPORTUNITY_FETCH_CONCURRENCY", 4);
 
-export async function refreshOpportunityPages(opportunities: Opportunity[]) {
+export async function refreshOpportunityPages(opportunities: Opportunity[], limit = maxOpportunityPagesPerRun) {
+  const pageLimit = Math.max(1, Math.min(maxOpportunityPagesPerRun, Math.trunc(limit)));
   const targets = opportunities
     .filter((opportunity) => opportunity.url.startsWith("http"))
     .filter((opportunity) => opportunity.source === "user-provided-link" || opportunity.rawContent.trim().length === 0)
-    .slice(0, maxOpportunityPagesPerRun);
+    .slice(0, pageLimit);
 
-  const results: PageFetchResult[] = [];
-  for (const opportunity of targets) {
+  const results = await mapWithConcurrency(targets, fetchConcurrency, async (opportunity) => {
     const result = await fetchOpportunityPage(opportunity);
-    results.push(result);
     upsertOpportunity({
       ...opportunity,
       title: result.title || opportunity.title || opportunity.url,
@@ -38,7 +40,8 @@ export async function refreshOpportunityPages(opportunities: Opportunity[]) {
         : opportunity.summary || "User-provided opportunity link could not be fetched by project automation. Codex automation may need browser verification.",
       source: opportunity.source || "user-provided-link"
     });
-  }
+    return result;
+  });
 
   return results;
 }
@@ -51,6 +54,9 @@ async function fetchOpportunityPage(opportunity: Opportunity): Promise<PageFetch
       throw new Error(`HTTP ${response.status}`);
     }
     const contentType = response.headers.get("content-type") || "";
+    if (!isReadableTextContent(contentType)) {
+      throw new Error(`Unsupported opportunity page content type: ${contentType || "unknown"}`);
+    }
     const text = await readTextWithLimit(response, maxPageBytes);
     const title = extractTitle(text) || opportunity.title || opportunity.url;
     const content = contentType.includes("html") ? htmlToText(text) : text;
@@ -73,6 +79,11 @@ async function fetchOpportunityPage(opportunity: Opportunity): Promise<PageFetch
   }
 }
 
+function isReadableTextContent(contentType: string) {
+  const normalized = contentType.toLowerCase();
+  return !normalized || normalized.includes("text/") || normalized.includes("html") || normalized.includes("xml") || normalized.includes("json");
+}
+
 async function fetchPublicPage(initialUrl: string) {
   let url = initialUrl;
   for (let redirect = 0; redirect <= maxRedirects; redirect += 1) {
@@ -82,7 +93,7 @@ async function fetchPublicPage(initialUrl: string) {
         "Accept": "text/html,application/xhtml+xml,application/xml,text/plain;q=0.9,*/*;q=0.8"
       },
       redirect: "manual",
-      signal: AbortSignal.timeout(15000)
+      signal: AbortSignal.timeout(fetchTimeoutMs)
     });
 
     if (![301, 302, 303, 307, 308].includes(response.status)) {
@@ -94,6 +105,11 @@ async function fetchPublicPage(initialUrl: string) {
     url = await assertPublicOpportunityUrl(new URL(location, url).toString());
   }
   throw new Error("Opportunity URL redirected too many times.");
+}
+
+function readPositiveInt(name: string, fallback: number) {
+  const value = Number(process.env[name] || "");
+  return Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
 async function readTextWithLimit(response: Response, maxBytes: number) {

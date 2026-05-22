@@ -5,30 +5,20 @@ import type {
   ArtistProfile,
   CvEntry,
   MaterialKind,
-  OpportunityFeePreference,
-  OpportunityTierPreference,
   SourceMaterial,
-  SubmissionApprovalMode,
   Work
 } from "@/types/domain";
-import { Area, Field, NumberField, SelectField } from "./FormControls";
+import { Area, Field } from "./FormControls";
+import { ProfilePanel } from "./ProfilePanel";
 import { StudioHeader, StudioSidebar } from "./StudioChrome";
 import { api } from "./studioApi";
 import {
-  applicationRegionLabel,
-  applicationRegionOptions,
   emptyCvEntry,
   emptyWork,
   initialData,
   materialKindLabel,
   materialKindMeta,
-  opportunityFeePreferenceLabel,
-  opportunityFeePreferenceOptions,
-  opportunityTierPreferenceLabel,
-  opportunityTierPreferenceOptions,
-  prepareSavePayload,
-  submissionApprovalModeLabel,
-  submissionApprovalModeOptions
+  prepareSavePayload
 } from "./studioModel";
 import type { CodexContextResult, ProjectAutomationResult, ScanResult, StudioData, Tab } from "./studioTypes";
 
@@ -382,70 +372,7 @@ export default function Studio() {
 
         <section className="stack">
           {tab === "profile" && (
-            <div className="panel stack">
-              <h2>艺术家资料</h2>
-              <div className="grid-2">
-                <Field label="中文姓名" value={data.profile.nameZh} onChange={(value) => setProfile("nameZh", value)} />
-                <Field label="English Name" value={data.profile.nameEn} onChange={(value) => setProfile("nameEn", value)} />
-                <Field label="邮箱" value={data.profile.email} onChange={(value) => setProfile("email", value)} />
-                <Field label="中文所在地" value={data.profile.locationZh} onChange={(value) => setProfile("locationZh", value)} />
-                <Field label="Location in English" value={data.profile.locationEn} onChange={(value) => setProfile("locationEn", value)} />
-                <SelectField
-                  label="申请地区"
-                  value={data.profile.applicationRegion || "worldwide"}
-                  onChange={(value) => setProfile("applicationRegion", value)}
-                  options={applicationRegionOptions}
-                />
-                <NumberField
-                  label="每轮最多处理数量"
-                  value={data.profile.automationBatchLimit || 5}
-                  min={1}
-                  max={100}
-                  onChange={(value) => setProfile("automationBatchLimit", value)}
-                />
-                <SelectField
-                  label="提交审核模式"
-                  value={data.profile.submissionApprovalMode || "review_required"}
-                  onChange={(value) => setProfile("submissionApprovalMode", value as SubmissionApprovalMode)}
-                  options={submissionApprovalModeOptions}
-                />
-                <SelectField
-                  label="费用接受度"
-                  value={data.profile.opportunityFeePreference || "conservative"}
-                  onChange={(value) => setProfile("opportunityFeePreference", value as OpportunityFeePreference)}
-                  options={opportunityFeePreferenceOptions}
-                />
-                <SelectField
-                  label="机会等级偏好"
-                  value={data.profile.opportunityTierPreference || "high_tier"}
-                  onChange={(value) => setProfile("opportunityTierPreference", value as OpportunityTierPreference)}
-                  options={opportunityTierPreferenceOptions}
-                />
-                <Field label="网站" value={data.profile.website} onChange={(value) => setProfile("website", value)} />
-                <Field label="Instagram" value={data.profile.instagram} onChange={(value) => setProfile("instagram", value)} />
-              </div>
-              <p className="notice">
-                当前申请地区：{applicationRegionLabel(data.profile.applicationRegion)}；每轮最多处理 {data.profile.automationBatchLimit || 5} 个机会；
-                审核模式：{submissionApprovalModeLabel(data.profile.submissionApprovalMode)}；费用接受度：{opportunityFeePreferenceLabel(data.profile.opportunityFeePreference)}；
-                机会等级：{opportunityTierPreferenceLabel(data.profile.opportunityTierPreference)}。
-              </p>
-              <div className="grid-2">
-                <Area label="中文 Artist Statement" value={data.profile.statementZh} onChange={(value) => setProfile("statementZh", value)} />
-                <Area label="English Artist Statement" value={data.profile.statementEn} onChange={(value) => setProfile("statementEn", value)} />
-              </div>
-              <div className="grid-3">
-                <Area label="中文 Bio 短版" value={data.profile.bioZhShort} onChange={(value) => setProfile("bioZhShort", value)} />
-                <Area label="中文 Bio 中版" value={data.profile.bioZhMedium} onChange={(value) => setProfile("bioZhMedium", value)} />
-                <Area label="中文 Bio 长版" value={data.profile.bioZhLong} onChange={(value) => setProfile("bioZhLong", value)} />
-                <Area label="English Bio Short" value={data.profile.bioEnShort} onChange={(value) => setProfile("bioEnShort", value)} />
-                <Area label="English Bio Medium" value={data.profile.bioEnMedium} onChange={(value) => setProfile("bioEnMedium", value)} />
-                <Area label="English Bio Long" value={data.profile.bioEnLong} onChange={(value) => setProfile("bioEnLong", value)} />
-              </div>
-              <div className="grid-2">
-                <Area label="中文申请偏好" value={data.profile.preferencesZh} onChange={(value) => setProfile("preferencesZh", value)} />
-                <Area label="Application Preferences in English" value={data.profile.preferencesEn} onChange={(value) => setProfile("preferencesEn", value)} />
-              </div>
-            </div>
+            <ProfilePanel profile={data.profile} setProfile={setProfile} />
           )}
 
           {tab === "materials" && (
@@ -690,30 +617,27 @@ export default function Studio() {
           {tab === "settings" && (
             <div className="panel stack">
               <h2>自动化</h2>
-              <p>这个项目保存资料、结果和自动化偏好；可以只用外接 API 自动化，也可以只用 Codex，或两者结合。上下文文件会把最新偏好作为执行标准。</p>
+              <p>这里保存自动化偏好并触发上下文刷新。完整执行规则见 docs/rules.md；机器规则由 src/lib/automationRules.ts 生成给 Codex 和外接 API prompt。</p>
               <div className="card stack">
-                <h3>执行标准</h3>
-                <ul className="compact-list">
-                  <li>机会必须确认中国人、中国所在地艺术家或国际申请者可申请。</li>
-                  <li>申请地区默认全世界，可在艺术家资料里改成亚洲、欧洲、北美等范围；搜索和排序必须按这个地区偏好执行。</li>
-                  <li>每轮处理数量按“每轮最多处理数量”执行，最多可设为 100。</li>
-                  <li>费用接受度默认保守：优先免费或强资助；可改成接受少量申请费，或允许付费项目但必须标红风险。</li>
-                  <li>机会等级默认高等级优先；可改成高等级 + 中等级，或更开放地包含小机构和实验项目。</li>
-                  <li>审核模式可选择必须审核、可跳过审核准备或直接申请；直接申请仍必须在付款、登录、验证码、敏感授权、资格不明时停下来。</li>
-                  <li>审核材料默认中英对照；最终提交文件只按对方要求的语言制作。</li>
-                  <li>作品集要认真选作品，先完整呈现作品本体，再按需要补充现场或细节图，并做专业排版；真实作品展览先确认作品是否还在手里。</li>
-                  <li>投递完成后，把最终提交版复制到 generated/final-submissions/日期/，写清日期和文件名，再清理草稿。</li>
-                </ul>
+                <h3>当前偏好</h3>
+                <div className="stats">
+                  <span><strong>{data.profile.applicationRegion || "worldwide"}</strong> 申请地区</span>
+                  <span><strong>{data.profile.automationBatchLimit || 5}</strong> 每轮上限</span>
+                  <span><strong>{data.profile.submissionApprovalMode || "review_required"}</strong> 审核模式</span>
+                  <span><strong>{data.profile.opportunityFeePreference || "conservative"}</strong> 费用偏好</span>
+                  <span><strong>{data.profile.opportunityTierPreference || "high_tier"}</strong> 机会等级</span>
+                </div>
+                <p className="muted">自动化会遵守地区偏好、费用偏好、机会等级、审核模式和安全暂停条件；付款、登录、验证码、敏感授权、资格或费用不明、材料缺失和不可逆动作仍需人工介入。</p>
               </div>
               <div className="card stack">
                 <h3>Codex 工作流读取</h3>
-                <p className="muted">点击“刷新 Codex 上下文”后，会生成当前资料快照和自动化说明，供 Codex 继续做复杂核验、材料分析、文件制作和确认后投递：</p>
+                <p className="muted">点击“刷新 Codex 上下文”后，会生成当前资料快照和自动化说明：</p>
                 <pre>{`generated/codex/artist-snapshot.json
 generated/codex/automation-instructions.md`}</pre>
               </div>
               <div className="card stack">
                 <h3>外接 API 自动化</h3>
-                <p className="muted">如果在 .env.local 配置了外接模型 API，网页可以直接调用模型生成自动化报告、核验手动机会链接和申请包草稿；外接模型不会自动提交材料。</p>
+                <p className="muted">如果在 .env.local 配置了外接 API，网页可以生成报告、核验手动机会链接文本和申请包草稿；外接 API 不会自动提交材料。</p>
                 <pre>{`ARTIST_STUDIO_AI_API_KEY=你的 key
 ARTIST_STUDIO_AI_PROVIDER=openai-compatible
 ARTIST_STUDIO_AI_BASE_URL=https://你的接口地址

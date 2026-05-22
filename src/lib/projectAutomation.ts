@@ -6,47 +6,11 @@ import { refreshOpportunityPages } from "./opportunityPages";
 import { generatedReportsDir } from "./paths";
 import { writeApplicationPackage } from "./package";
 import { asListText, extractJsonObject } from "./json";
+import { aiAutomationResponseSchema, type AiAutomationResponse } from "./schemas";
+import { buildPromptRules } from "./automationRules";
 import type { Opportunity } from "@/types/domain";
 
-type AiApplicationPackage = {
-  opportunityId?: number;
-  draftZh?: string;
-  draftEn?: string;
-  checklist?: string | string[];
-  selectedWorks?: string | string[];
-  bioZh?: string;
-  bioEn?: string;
-  statementZh?: string;
-  statementEn?: string;
-  cvText?: string;
-};
-
-type AiAutomationResponse = {
-  summaryZh?: string;
-  summaryEn?: string;
-  profileNotesZh?: string;
-  profileNotesEn?: string;
-  verifiedOpportunities?: {
-    opportunityId?: number;
-    title?: string;
-    organization?: string;
-    deadline?: string;
-    location?: string;
-    fee?: string;
-    funding?: string;
-    eligibility?: string;
-    materials?: string;
-    submissionMethod?: "email" | "web_form" | "unknown";
-    summary?: string;
-    score?: number;
-    risks?: string;
-    status?: "new" | "confirmed" | "preparing" | "ready_to_submit" | "submitted" | "waiting" | "shortlisted" | "rejected";
-  }[];
-  opportunityResearchPlanZh?: string[];
-  opportunityResearchPlanEn?: string[];
-  warnings?: string[];
-  applicationPackages?: AiApplicationPackage[];
-};
+const opportunityPromptTextLimit = readPositiveInt("ARTIST_STUDIO_OPPORTUNITY_PROMPT_TEXT_LIMIT", 12000);
 
 export async function runProjectAutomation() {
   if (!getAiConfig()) {
@@ -61,12 +25,12 @@ export async function runProjectAutomation() {
     opportunityRawContentLimit: 1500,
     applicationLimit: 20
   });
-  const pageFetches = await refreshOpportunityPages(initialData.opportunities);
+  const pageFetches = await refreshOpportunityPages(initialData.opportunities, initialData.profile.automationBatchLimit);
   const data = readArtistData({
     materialLimit: 80,
     materialContentLimit: 3000,
     opportunityLimit: 120,
-    opportunityRawContentLimit: 6000,
+    opportunityRawContentLimit: opportunityPromptTextLimit,
     applicationLimit: 20
   });
 
@@ -84,7 +48,7 @@ export async function runProjectAutomation() {
     { role: "user", content: prompt }
   ]);
 
-  const parsed = extractJsonObject(ai.content) as AiAutomationResponse;
+  const parsed = aiAutomationResponseSchema.parse(extractJsonObject(ai.content));
   const opportunityById = new Map(data.opportunities.map((item: Opportunity) => [item.id, item]));
   const packagePaths: string[] = [];
 
@@ -183,26 +147,7 @@ function buildAutomationPrompt(data: ReturnType<typeof readArtistData>) {
         cvText: "optional CV text"
       }]
     },
-    rules: {
-      reviewMaterialsMustBeBilingual: true,
-      finalSubmissionLanguageDependsOnOpportunity: true,
-      doNotSubmitWithoutUserApproval: true,
-      doNotInventLiveOpportunityFacts: true,
-      projectMayFetchUserProvidedLinks: true,
-      externalApiMustUseFetchedSourceTextForVerification: true,
-      externalApiCanDraftButCodexAutomationCanStillVerifyHighRiskFacts: true,
-      applicationRegionDefaultsToWorldwide: true,
-      selectedApplicationRegionMustGuideSearchAndRanking: true,
-      maximumOpportunitiesPerRun: data.profile.automationBatchLimit,
-      submissionApprovalMode: data.profile.submissionApprovalMode,
-      opportunityFeePreference: data.profile.opportunityFeePreference,
-      opportunityTierPreference: data.profile.opportunityTierPreference,
-      opportunityFeePreferenceRule: "conservative prefers free or strongly funded opportunities and rejects pay-to-show economics; application_fee_ok allows modest application fees but still rejects booth, wall, venue, mandatory production, lodging, or high participation fees unless explicitly justified; paid_ok allows paid exhibitions/residencies to be considered only when clearly labeled with cost and risk, and payment still requires user confirmation.",
-      opportunityTierPreferenceRule: "high_tier prioritizes museums, universities, foundations, respected residencies, credible nonprofits, and serious open calls; balanced includes high-tier and credible mid-tier opportunities; open also considers small spaces, new organizations, and experimental projects while scoring credibility and risk explicitly.",
-      directApplyModeStopsForPaymentLoginCaptchaSensitiveAuthOrUnclearEligibility: true,
-      multimodalMaterialsMustUseOriginalContentWhenProviderSupportsIt: true,
-      extractedTextAndMetadataAreIndexingAidsOnly: true
-    },
+    rules: buildPromptRules(data.profile),
     profile: data.profile,
     works: data.works,
     cv: data.cv,
@@ -251,6 +196,11 @@ function verifiedOpportunityPatch(verified: NonNullable<AiAutomationResponse["ve
 
 function withoutUndefined<T extends Record<string, unknown>>(value: T) {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)) as Partial<T>;
+}
+
+function readPositiveInt(name: string, fallback: number) {
+  const value = Number(process.env[name] || "");
+  return Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
 function renderReport(

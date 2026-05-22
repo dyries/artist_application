@@ -1,18 +1,16 @@
 # Codex Workflow
 
-## 中文
+本文件只说明 Codex 操作步骤。完整规则见 [rules.md](rules.md)，自动化模式说明见 [automation.md](automation.md)。
 
-这个项目可以只配合 Codex 使用，也可以只使用网页内外接 API，或两者结合。Web app 负责保存资料、索引材料、记录机会和写出快照；Codex 可以读取这些快照继续理解材料、搜索和核验机会、制作申请包，并按使用者选择的审核模式继续投递步骤。
+## Prerequisites
 
-### 前提
+- Git
+- Node.js 20 或更新版本
+- npm
+- 已安装并登录 Codex
+- 可选：Python 3、`pypdf`、`python-docx`、`reportlab`，用于更完整的材料提取和 DOCX/PDF 输出
 
-- 安装 Git。
-- 安装 Node.js 20 或更新版本。
-- 使用 Codex 自动化时，需要安装并登录 Codex。
-- 使用网页内外接 API 自动化时，需要在仓库根目录 `.env.local` 配置自己的 API key、base URL 和模型名。可以使用 OpenAI-compatible 网关，也可以使用 DeepSeek、OpenAI、Gemini、Claude 等 provider。
-- 可选：安装 Python 3 和 `pypdf`、`python-docx`、`reportlab`，用于更完整的材料提取和 DOCX/PDF 输出。可通过 `ARTIST_STUDIO_PYTHON` 指定 Python 路径。
-
-### 使用步骤
+## Steps
 
 1. 安装依赖并启动项目：
 
@@ -21,69 +19,26 @@ npm install
 npm run dev
 ```
 
-2. 在网页中填写艺术家资料，或把材料放入 `artist-assets/inbox/` 对应分类。
-3. 使用“扫描材料”或上传入口把材料写入资料库。
-4. 点击“刷新 Codex 上下文”，生成：
+2. 在网页中填写艺术家资料和自动化偏好。
+3. 上传材料，或把文件放入 `artist-assets/inbox/` 对应分类后点击“扫描材料”。
+4. 添加手动机会链接，或准备让 Codex 继续搜索机会。
+5. 点击“刷新 Codex 上下文”，生成：
 
 ```text
 generated/codex/artist-snapshot.json
 generated/codex/automation-instructions.md
 ```
 
-5. 在 Codex 中打开同一个仓库，要求 Codex 读取这两个文件，并继续执行机会搜索、材料分析、申请包制作或最终归档。
+6. 在 Codex 中打开同一个仓库，要求 Codex 读取上述两个文件。
+7. 让 Codex 继续执行机会搜索、材料分析、申请包制作、审核文件生成、最终归档或用户确认后的投递步骤。
 
-### 能力边界
+## What Codex Should Read
 
-- Codex 自动化不需要 `.env.local` 中的外部模型 API key。
-- 网页内外接 API 自动化由使用者自行选择和配置，可以用于网页内报告、手动机会链接核验和草稿生成。
-- 两种方式可以单独使用，也可以组合使用。
-- 使用者可以把每轮最多处理数量设为 1-100。
-- 提交审核模式可以设为必须审核、可跳过审核准备或直接申请。
-- 直接申请代表使用者对当前运行批次做了预授权；但付款、登录、验证码、敏感授权、资格不明、费用不明、材料缺失或不可逆操作仍必须暂停。
-- 自动化必须遵守 `profile.opportunityFeePreference`：默认 `conservative`，优先免费或强资助；`application_fee_ok` 可接受少量申请费；`paid_ok` 可把付费展览/驻留放入候选池，但必须清楚标注费用和风险，付款前仍必须暂停确认。
-- 自动化必须遵守 `profile.opportunityTierPreference`：默认 `high_tier`，高等级机构优先；`balanced` 可包含可信中等级机会；`open` 可包含小机构、新空间和实验项目，但要明确标注可信度风险。
-- 真实材料、数据库、生成申请包、最终提交文件和 API key 都不应提交到 Git。
+- `generated/codex/artist-snapshot.json`：当前资料、材料索引、机会、申请包和偏好。
+- `generated/codex/automation-instructions.md`：由共享机器规则生成的自动化说明。
+- `artist-assets/source-materials/`、`artist-assets/works/`、`artist-assets/inbox/`：需要直接理解原始材料时读取。
+- `data/artist.sqlite`：需要写回或核对数据库状态时读取。
 
-## English
+## Boundaries
 
-This project can be used with Codex only, with an in-app external API only, or with both. The web app stores profile data, indexes source materials, records opportunities, and exports a workspace snapshot. Codex can read that snapshot and continue with material interpretation, opportunity search and verification, application package production, and user-confirmed submission steps.
-
-### Prerequisites
-
-- Install Git.
-- Install Node.js 20 or newer.
-- Install and sign in to Codex when using Codex automation.
-- Prepare external API settings in repository-root `.env.local` when using in-app API automation. Users can configure an OpenAI-compatible gateway or provider-specific APIs such as DeepSeek, OpenAI, Gemini, and Claude.
-- Optional: install Python 3 with `pypdf`, `python-docx`, and `reportlab` for stronger material extraction and DOCX/PDF export. Set `ARTIST_STUDIO_PYTHON` to choose a Python executable.
-
-### Workflow
-
-1. Install dependencies and start the app:
-
-```bash
-npm install
-npm run dev
-```
-
-2. Fill in the artist profile in the app, or place materials under the matching `artist-assets/inbox/` category.
-3. Scan or upload materials so the app records them.
-4. Use “Refresh Codex Context” to generate:
-
-```text
-generated/codex/artist-snapshot.json
-generated/codex/automation-instructions.md
-```
-
-5. Open the same repository in Codex, ask Codex to read those two files, and continue with opportunity research, material analysis, application package preparation, or final archiving.
-
-### Boundaries
-
-- Codex automation does not require external model API keys in `.env.local`.
-- In-app external API automation is user-configured and can be used for reports, manual opportunity link checks, and draft generation.
-- The two modes can be used separately or together.
-- Users can set the maximum number of opportunities per run from 1 to 100.
-- Submission approval mode can be review required, review optional, or direct apply.
-- Direct apply is pre-authorization for the current run batch; automation must still pause for payment, login, captcha, sensitive authorization, unclear eligibility, unclear fees, missing required materials, or irreversible actions.
-- Automation must follow `profile.opportunityFeePreference`: `conservative` is the default, `application_fee_ok` permits modest application fees, and `paid_ok` may include paid exhibitions or residencies only with clear cost and risk labeling. Payment still requires confirmation.
-- Automation must follow `profile.opportunityTierPreference`: `high_tier` is the default, `balanced` includes credible mid-tier opportunities, and `open` may include small spaces, new organizations, and experimental projects with credibility risks labeled.
-- Real materials, databases, generated packages, final submission files, and API keys should not be committed to Git.
+Codex 自动化不需要 `.env.local` 中的外接 API key。真实材料、数据库、生成申请包、最终提交文件、备份和 API key 不应提交到 Git。提交、付款、登录、验证码、敏感授权和不可逆动作按 [rules.md](rules.md) 中的审核与安全边界执行。

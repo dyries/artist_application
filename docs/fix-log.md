@@ -1,5 +1,131 @@
 # Fix Log
 
+## 2026-05-22 11:52 CST
+
+### Scope
+
+- Reduced repeated rule and automation prose across docs, UI, and machine prompts.
+- Added a shared machine-rule source for Codex instructions and external API prompts.
+
+### Issues Found
+
+- README, automation docs, Codex workflow docs, Studio settings, Codex workspace export, and project automation prompt repeated the same review, fee, tier, direct-apply, and safety rules.
+- `src/lib/codexWorkspace.ts` and `src/lib/projectAutomation.ts` each hand-wrote overlapping rule text, making future drift likely.
+- The settings page duplicated long-form rules that belong in documentation.
+
+### Root Cause
+
+- Human-readable rules and machine-readable prompt rules were maintained as separate prose blocks instead of being generated from a shared source.
+- README and workflow docs had grown from entry points into full rule documents.
+
+### Changes
+
+- Added `src/lib/automationRules.ts` as the shared machine-rule module.
+- Updated Codex workspace export and external API automation prompt generation to use the shared rules.
+- Shortened README, `docs/automation.md`, and `docs/codex-workflow.md` into focused entry/workflow documents with links to `docs/rules.md`.
+- Replaced the Studio settings page's long rule list with a current preference summary.
+- Updated maintenance/rule docs and project verification to recognize the shared rule module.
+
+### Files Changed
+
+- `README.md`
+- `docs/automation.md`
+- `docs/codex-workflow.md`
+- `docs/fix-log.md`
+- `docs/maintenance.md`
+- `docs/rules.md`
+- `scripts/verify-project.mjs`
+- `src/app/components/Studio.tsx`
+- `src/app/components/StudioChrome.tsx`
+- `src/lib/automationRules.ts`
+- `src/lib/codexWorkspace.ts`
+- `src/lib/projectAutomation.ts`
+
+### Verification
+
+```bash
+npm run typecheck
+npm test
+npm run lint
+```
+
+All checks passed.
+
+### Remaining Notes
+
+- `docs/rules.md` remains the human-readable rule source. `src/lib/automationRules.ts` is the machine-readable source used to generate Codex and external API instructions.
+
+## 2026-05-22 00:00 CST
+
+### Scope
+
+- Hardened external-model automation output handling.
+- Increased and parameterized public opportunity page fetching.
+- Added repository CI checks and clearer onboarding/output documentation.
+- Started a low-risk split of the main Studio component.
+
+### Issues Found
+
+- External model output was parsed with a TypeScript assertion instead of runtime validation.
+- Opportunity fetching was hard-coded to 12 pages, 1MB, 15 seconds, and 5 redirects, which was too restrictive for larger open-call batches.
+- Opportunity fetching ran sequentially, making larger batches unnecessarily slow.
+- The repository did not have GitHub Actions for lint, typecheck, and project verification.
+- README did not show a concise end-to-end workflow or generated package preview.
+- `Studio.tsx` still carried too much UI surface in one file.
+- Application package manifest recording happened inside package writing before an application id was available, then project automation recorded it again with the id.
+
+### Root Cause
+
+- Initial automation code relied on prompt instructions and TypeScript shapes rather than validating untrusted model JSON at runtime.
+- Page fetch limits were defensive constants from an early implementation and were not exposed through environment configuration.
+- The existing concurrency helper was not used for opportunity page refresh.
+- Maintenance checks were local-only.
+- Project documentation described capabilities but did not show the concrete generated artifact shape early enough.
+- The workbench UI grew organically around one component.
+
+### Changes
+
+- Added `aiAutomationResponseSchema` and parse model output with Zod before writing opportunities or application packages.
+- Raised default opportunity fetch limits to 100 pages, 5MB per page, 30 seconds, 8 redirects, 60000 stored characters, 12000 prompt characters, and 4 concurrent requests.
+- Added `.env.local` knobs for opportunity fetch limits while keeping SSRF protections enforced.
+- Added GitHub Actions checks for `npm ci`, `npm run lint`, `npm run typecheck`, and `npm test`.
+- Added README workflow and generated package preview plus `docs/example-application-package.md`.
+- Extracted the profile tab into `ProfilePanel`.
+- Kept manifest database recording in project automation where the application id is available.
+
+### Files Changed
+
+- `.env.example`
+- `.github/workflows/checks.yml`
+- `README.md`
+- `docs/automation.md`
+- `docs/example-application-package.md`
+- `docs/fix-log.md`
+- `docs/maintenance.md`
+- `scripts/verify-project.mjs`
+- `src/app/components/ProfilePanel.tsx`
+- `src/app/components/Studio.tsx`
+- `src/lib/opportunityPages.ts`
+- `src/lib/package.ts`
+- `src/lib/projectAutomation.ts`
+- `src/lib/schemas.ts`
+
+### Verification
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+All checks passed after the code and documentation changes.
+
+### Remaining Notes
+
+- Static server-side fetch still cannot solve JS-rendered pages, login, captcha, payments, or complex form submission. Those remain Codex browser or manual-review tasks.
+
+
 This file records recurring bug fixes, error investigations, optimization passes, and verification results so project maintenance is not only preserved in chat history.
 
 ## 2026-05-19 Add all-rights-reserved repository license notice

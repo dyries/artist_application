@@ -4,6 +4,7 @@ import path from "node:path";
 const root = process.cwd();
 const requiredFiles = [
   ".gitignore",
+  ".github/workflows/checks.yml",
   "README.md",
   "docs/codex-workflow.md",
   "docs/rules.md",
@@ -12,6 +13,7 @@ const requiredFiles = [
   "docs/fix-log.md",
   "docs/status-lifecycle.md",
   "docs/maintenance.md",
+  "src/lib/automationRules.ts",
   "src/lib/db.ts",
   "src/lib/package.ts"
 ];

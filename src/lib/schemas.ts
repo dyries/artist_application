@@ -1,5 +1,17 @@
 import { z } from "zod";
 
+const listTextSchema = z.union([z.string(), z.array(z.string())]).optional();
+const opportunityStatusSchema = z.enum([
+  "new",
+  "confirmed",
+  "preparing",
+  "ready_to_submit",
+  "submitted",
+  "waiting",
+  "shortlisted",
+  "rejected"
+]);
+
 export const artistPayloadSchema = z.object({
   profile: z.object({
     id: z.number().default(1),
@@ -75,3 +87,43 @@ export const artistPayloadSchema = z.object({
     mimeType: z.string().default("")
   })).default([])
 });
+
+export const aiAutomationResponseSchema = z.object({
+  summaryZh: z.string().optional(),
+  summaryEn: z.string().optional(),
+  profileNotesZh: z.string().optional(),
+  profileNotesEn: z.string().optional(),
+  verifiedOpportunities: z.array(z.object({
+    opportunityId: z.number().int().positive().optional(),
+    title: z.string().optional(),
+    organization: z.string().optional(),
+    deadline: z.string().optional(),
+    location: z.string().optional(),
+    fee: z.string().optional(),
+    funding: z.string().optional(),
+    eligibility: z.string().optional(),
+    materials: z.string().optional(),
+    submissionMethod: z.enum(["email", "web_form", "unknown"]).optional(),
+    summary: z.string().optional(),
+    score: z.number().finite().optional(),
+    risks: z.string().optional(),
+    status: opportunityStatusSchema.optional()
+  }).strict()).default([]),
+  opportunityResearchPlanZh: z.array(z.string()).default([]),
+  opportunityResearchPlanEn: z.array(z.string()).default([]),
+  warnings: z.array(z.string()).default([]),
+  applicationPackages: z.array(z.object({
+    opportunityId: z.number().int().positive().optional(),
+    draftZh: z.string().optional(),
+    draftEn: z.string().optional(),
+    checklist: listTextSchema,
+    selectedWorks: listTextSchema,
+    bioZh: z.string().optional(),
+    bioEn: z.string().optional(),
+    statementZh: z.string().optional(),
+    statementEn: z.string().optional(),
+    cvText: z.string().optional()
+  }).strict()).default([])
+}).strict();
+
+export type AiAutomationResponse = z.infer<typeof aiAutomationResponseSchema>;

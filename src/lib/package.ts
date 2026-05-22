@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { generatedApplicationsDir, materialsInboxDir, sourceMaterialsDir, worksDir } from "./paths";
 import { writeGeneratedDocuments } from "./documentOutputs";
-import { recordPackageManifest } from "./db";
 import type { Application, Opportunity } from "@/types/domain";
 
 type PackageDraft = Pick<Application, "draftZh" | "draftEn" | "checklist" | "selectedWorks"> & {
@@ -115,13 +114,6 @@ ${app.selectedWorks}
     }
   };
   fs.writeFileSync(files.manifest, JSON.stringify(manifest, null, 2), "utf8");
-  recordPackageManifest({
-    opportunityId: opportunity.id,
-    packagePath: folder,
-    manifestPath: files.manifest,
-    manifestVersion: manifest.manifestVersion,
-    status: manifest.status
-  });
   return folder;
 }
 
