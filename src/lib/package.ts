@@ -7,7 +7,7 @@ import { runApplicationQualityChecks } from "./qualityChecks";
 import { sanitizeExternalText } from "./outputSanitizer";
 import { renderPortfolioPackage } from "./portfolioRenderer";
 import { checkExternalSubmissionFiles } from "./fileQualityCheck";
-import type { Application, AutomationRunMode, Opportunity, SourceMaterial } from "@/types/domain";
+import type { Application, ArtistProfile, AutomationRunMode, Opportunity, PortfolioPlan, PortfolioPlanPage, PortfolioSourceAudit, SourceMaterial, Work } from "@/types/domain";
 
 export type PackageDraft = Pick<Application, "draftZh" | "draftEn" | "checklist" | "selectedWorks"> & {
   internalNotes?: string;
@@ -24,11 +24,19 @@ export type PackageDraft = Pick<Application, "draftZh" | "draftEn" | "checklist"
   statementZh?: string;
   statementEn?: string;
   cvText?: string;
+  portfolioPlan?: PortfolioPlan;
+  portfolioSourceAudit?: PortfolioSourceAudit;
+  selectedWorksStructured?: Array<{ workId?: number | string; title: string; imagePath?: string; role?: string; reason?: string }>;
+  excludedWorksOrImages?: Array<{ id?: number | string; path?: string; reason: string }>;
+  missingMetadata?: string[];
+  portfolioQualityRisks?: string[];
 };
 
 type WritePackageOptions = {
   runMode: AutomationRunMode;
   materialSources: Pick<SourceMaterial, "kind" | "title" | "fileName" | "filePath" | "content" | "analysis">[];
+  profile?: ArtistProfile;
+  works?: Work[];
 };
 
 function slugify(value: string) {
@@ -64,20 +72,19 @@ export function writeApplicationPackage(opportunity: Opportunity, app: PackageDr
     "email-zh.md": app.emailDraftZh || "",
     "portfolio-text.md": app.portfolioText || app.selectedWorks
   });
-  const existingPortfolioSources = options.materialSources
-    .filter((source) => source.kind === "portfolio")
-    .map((source) => source.fileName || source.title || source.filePath)
-    .filter(Boolean);
-  copySelectedImages(externalDir, app.selectedWorks);
+  const sourceAudit = app.portfolioSourceAudit || buildPortfolioSourceAudit(opportunity, options, app);
+  fs.writeFileSync(path.join(internalDir, "portfolio-source-audit.json"), JSON.stringify(sourceAudit, null, 2), "utf8");
+  const portfolioPlan = app.portfolioPlan || buildFallbackPortfolioPlan(opportunity, app, options, sourceAudit);
+  fs.writeFileSync(path.join(internalDir, "portfolio-plan.json"), JSON.stringify(portfolioPlan, null, 2), "utf8");
+  const imageCopyResult = copyPortfolioPlanImages(externalDir, portfolioPlan);
   const renderedPortfolio = renderPortfolioPackage({
     externalDir,
     internalDir,
     opportunity,
-    selectedWorks: app.selectedWorks,
-    portfolioText: sanitized.texts["portfolio-text.md"] || "",
-    existingPortfolioSources,
+    plan: portfolioPlan,
+    copiedImages: imageCopyResult.copiedImages,
     webResearchReferences: app.portfolioWebResearchReferences || [],
-    materialSources: options.materialSources
+    preflightIssues: imageCopyResult.issues
   });
 
   const userReviewZh = app.userReviewZh || renderDefaultUserReview(opportunity, app, sanitized.texts);
@@ -88,12 +95,14 @@ export function writeApplicationPackage(opportunity: Opportunity, app: PackageDr
     englishExternalTexts: Object.fromEntries(Object.entries(sanitized.texts).filter(([name]) => name.endsWith("-en.md"))),
     selectedWorks: app.selectedWorks,
     portfolioText: sanitized.texts["portfolio-text.md"] || "",
+    portfolioPlan,
+    portfolioSourceAudit: sourceAudit,
     portfolioWebResearchReferences: app.portfolioWebResearchReferences || [],
     materialSources: options.materialSources,
     runMode: options.runMode
   });
 
-  const internalIssues = [...sanitized.internalIssues, ...quality.internalIssues];
+  const internalIssues = [...sanitized.internalIssues, ...quality.internalIssues, ...imageCopyResult.issues];
   if (!renderedPortfolio.visualReport.passed) {
     internalIssues.push(...renderedPortfolio.visualReport.issues.map((issue) => `Portfolio visual/structure check: ${issue}`));
   }
@@ -285,28 +294,162 @@ function renderExternalFileChecklist(externalTexts: Record<string, string>) {
   ].join("\n");
 }
 
-function copySelectedImages(externalDir: string, selectedWorks: string) {
+function buildPortfolioSourceAudit(
+  opportunity: Opportunity,
+  options: WritePackageOptions,
+  app: PackageDraft
+): PortfolioSourceAudit {
+  const existingPortfolioSources = options.materialSources
+    .filter((source) => source.kind === "portfolio")
+    .map((source) => source.filePath || source.fileName || source.title)
+    .filter(Boolean);
+  const availableWorks = (options.works || []).map((work) => ({
+    id: work.id,
+    title: work.titleEn || work.title || work.titleZh || `Work ${work.id}`,
+    year: work.year,
+    medium: work.mediumEn || work.medium || work.mediumZh,
+    dimensions: work.dimensionsEn || work.dimensions || work.dimensionsZh,
+    imagePath: work.imagePath
+  }));
+  const availableImageFiles = listImageFiles([worksDir, sourceMaterialsDir, materialsInboxDir]);
+  const missingMetadata = [
+    ...availableWorks.flatMap((work) => {
+      const missing = [];
+      if (!work.year) missing.push(`${work.title}: missing year`);
+      if (!work.medium) missing.push(`${work.title}: missing medium`);
+      if (!work.dimensions) missing.push(`${work.title}: missing dimensions`);
+      if (!work.imagePath) missing.push(`${work.title}: missing image path`);
+      return missing;
+    }),
+    ...(app.missingMetadata || [])
+  ];
+  const rawMaterialsText = opportunity.materials || opportunity.rawContent || "";
+  return {
+    existingPortfolioSources,
+    availableWorks,
+    availableImageFiles,
+    missingMetadata,
+    lowConfidenceFacts: app.portfolioQualityRisks || [],
+    opportunitySpecificConstraints: {
+      maxPages: inferMaxPages(rawMaterialsText),
+      targetFileSizeMb: inferTargetFileSizeMb(rawMaterialsText),
+      language: /chinese|中文/i.test(rawMaterialsText) ? "zh" : "en",
+      requiresCv: /\bcv\b|curriculum vitae/i.test(rawMaterialsText),
+      requiresBio: /\bbio\b|biography/i.test(rawMaterialsText),
+      requiresStatement: /statement/i.test(rawMaterialsText),
+      requiresSinglePdf: /single pdf|one pdf|combined pdf/i.test(rawMaterialsText),
+      rawMaterialsText
+    },
+    materialsActuallyUsed: existingPortfolioSources
+  };
+}
+
+function buildFallbackPortfolioPlan(
+  opportunity: Opportunity,
+  app: PackageDraft,
+  options: WritePackageOptions,
+  audit: PortfolioSourceAudit
+): PortfolioPlan {
+  const artistName = options.profile?.nameEn || options.profile?.name || options.profile?.nameZh || "Artist";
+  const selectedImagePaths = extractLegacyImagePaths(app.selectedWorks);
+  const selectedWorks: Array<{ title: string; imagePath: string; year?: string; medium?: string; dimensions?: string }> = selectedImagePaths.length
+    ? selectedImagePaths.map((imagePath, index) => ({ title: legacyTitleForImage(app.selectedWorks, imagePath) || `Work ${index + 1}`, imagePath }))
+    : audit.availableWorks.filter((work) => work.imagePath).slice(0, 8).map((work) => ({ title: work.title, imagePath: work.imagePath || "", year: work.year, medium: work.medium, dimensions: work.dimensions }));
+  const pages: PortfolioPlanPage[] = [
+    {
+      type: "cover",
+      title: artistName,
+      subtitle: "Selected Works",
+      year: String(new Date().getFullYear()),
+      contact: [options.profile?.email, options.profile?.website].filter(Boolean).join(" | ") || undefined
+    },
+    ...selectedWorks.map((work) => ({
+      type: "work_full_page" as const,
+      title: work.title,
+      year: work.year,
+      medium: work.medium,
+      dimensions: work.dimensions,
+      imageRole: "primary" as const,
+      imagePath: work.imagePath,
+      caption: [work.title, work.year, work.medium, work.dimensions].filter(Boolean).join(", ")
+    }))
+  ];
+  return {
+    artistName,
+    portfolioTitle: "Selected Works",
+    year: String(new Date().getFullYear()),
+    language: audit.opportunitySpecificConstraints.language || "en",
+    maxPages: audit.opportunitySpecificConstraints.maxPages,
+    targetFileSizeMb: audit.opportunitySpecificConstraints.targetFileSizeMb,
+    pages,
+    excludedImages: app.excludedWorksOrImages?.map((item) => ({ path: item.path || String(item.id || ""), reason: item.reason })) || [],
+    qualityRisks: [
+      "Fallback PortfolioPlan was built from legacy selectedWorks or stored works because AI did not provide structured portfolioPlan.",
+      ...(app.portfolioQualityRisks || [])
+    ]
+  };
+}
+
+function copyPortfolioPlanImages(externalDir: string, plan: PortfolioPlan) {
   const imageDir = path.join(externalDir, "images");
-  const paths = selectedWorks
-    .split("\n")
-    .map((line) => line.match(/Image:\s*(.+)$/i)?.[1]?.trim())
-    .filter((value): value is string => Boolean(value));
+  const paths = [...new Set(extractPortfolioPlanImagePaths(plan))];
+  const copiedImages: Array<{
+    sourcePath: string;
+    targetFileName: string;
+    width: number;
+    height: number;
+    format: string;
+    sizeBytes: number;
+    optimized: boolean;
+    tooSmallForFullPage: boolean;
+  }> = [];
+  const issues: string[] = [];
 
   for (const imagePath of paths) {
     const safeImagePath = resolveAllowedImagePath(imagePath);
-    if (!safeImagePath) continue;
+    if (!safeImagePath) {
+      issues.push(`Portfolio image is missing or outside allowed directories: ${imagePath}`);
+      continue;
+    }
+    const metadata = readImageMetadata(safeImagePath);
+    if (!metadata.ok) {
+      issues.push(`Portfolio image cannot be read by sharp: ${imagePath} (${metadata.error})`);
+      continue;
+    }
     fs.mkdirSync(imageDir, { recursive: true });
     const targetPath = path.join(imageDir, path.basename(safeImagePath));
-    fs.copyFileSync(safeImagePath, targetPath);
-    optimizeCopiedImage(targetPath);
+    try {
+      fs.copyFileSync(safeImagePath, targetPath);
+      const optimized = optimizeCopiedImage(targetPath);
+      const finalMetadata = readImageMetadata(targetPath);
+      if (!finalMetadata.ok) {
+        issues.push(`Copied portfolio image cannot be read after copy: ${imagePath} (${finalMetadata.error})`);
+        continue;
+      }
+      copiedImages.push({
+        sourcePath: imagePath,
+        targetFileName: path.basename(targetPath),
+        width: finalMetadata.width,
+        height: finalMetadata.height,
+        format: finalMetadata.format,
+        sizeBytes: fs.statSync(targetPath).size,
+        optimized,
+        tooSmallForFullPage: Math.max(finalMetadata.width, finalMetadata.height) < 1600 || Math.min(finalMetadata.width, finalMetadata.height) < 900
+      });
+    } catch (error) {
+      issues.push(`Failed to copy portfolio image ${imagePath}: ${error instanceof Error ? error.message : "unknown error"}`);
+    }
   }
+  if (paths.length === 0) issues.push("PortfolioPlan references no formal image paths.");
+  return { copiedImages, issues };
 }
 
 function optimizeCopiedImage(imagePath: string) {
   const extension = path.extname(imagePath).toLowerCase();
-  if (![".jpg", ".jpeg", ".png", ".webp"].includes(extension)) return;
+  if (![".jpg", ".jpeg", ".png", ".webp"].includes(extension)) return false;
 
   try {
+    const before = fs.statSync(imagePath).size;
     const code = `
       const fs = require("node:fs");
       const sharp = require("sharp");
@@ -338,9 +481,81 @@ function optimizeCopiedImage(imagePath: string) {
       stdio: "ignore",
       timeout: 30000
     });
+    return fs.statSync(imagePath).size < before;
   } catch {
-    // Keep the original file if local image optimization tooling is unavailable.
+    return false;
   }
+}
+
+function readImageMetadata(imagePath: string) {
+  try {
+    const code = `
+      const sharp = require("sharp");
+      sharp(${JSON.stringify(imagePath)}).metadata()
+        .then((metadata) => console.log(JSON.stringify({
+          width: metadata.width || 0,
+          height: metadata.height || 0,
+          format: metadata.format || ""
+        })))
+        .catch((error) => { console.error(error.message); process.exit(1); });
+    `;
+    const output = childProcess.execFileSync(process.execPath, ["-e", code], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      timeout: 30000
+    });
+    const metadata = JSON.parse(output) as { width: number; height: number; format: string };
+    return metadata.width && metadata.height
+      ? { ok: true as const, ...metadata }
+      : { ok: false as const, error: "missing width/height" };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "unknown error" };
+  }
+}
+
+function extractPortfolioPlanImagePaths(plan: PortfolioPlan) {
+  return plan.pages.flatMap((page) => {
+    if (page.type === "work_full_page") return [page.imagePath].filter(Boolean);
+    if (page.type === "work_with_details" || page.type === "installation_spread" || page.type === "series_grid") {
+      return page.images.map((image) => image.path).filter(Boolean);
+    }
+    return [];
+  });
+}
+
+function extractLegacyImagePaths(selectedWorks: string) {
+  return selectedWorks
+    .split("\n")
+    .map((line) => line.match(/Image:\s*(.+)$/i)?.[1]?.trim())
+    .filter((value): value is string => Boolean(value));
+}
+
+function legacyTitleForImage(selectedWorks: string, imagePath: string) {
+  const line = selectedWorks.split("\n").find((item) => item.includes(imagePath)) || "";
+  return line.replace(/Image:\s*.+$/i, "").replace(/^[-*]\s*/, "").replace(/[.,，。]\s*$/, "").trim();
+}
+
+function listImageFiles(roots: string[]) {
+  const files: string[] = [];
+  for (const root of roots) {
+    if (!fs.existsSync(root)) continue;
+    for (const item of fs.readdirSync(root, { recursive: true, withFileTypes: true })) {
+      if (!item.isFile()) continue;
+      const filePath = path.join(item.parentPath, item.name);
+      if (/\.(jpe?g|png|webp|tiff?)$/i.test(filePath)) files.push(filePath);
+    }
+  }
+  return files;
+}
+
+function inferMaxPages(text: string) {
+  const match = text.match(/(?:max(?:imum)?|up to|no more than)\s+(\d{1,2})\s+pages?/i);
+  return match ? Number(match[1]) : undefined;
+}
+
+function inferTargetFileSizeMb(text: string) {
+  const match = text.match(/(\d{1,3})\s*(?:mb|megabytes?)/i);
+  return match ? Number(match[1]) : undefined;
 }
 
 function resolveAllowedImagePath(imagePath: string) {

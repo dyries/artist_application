@@ -67,6 +67,98 @@ export type Work = {
   descriptionEn: string;
 };
 
+export type PortfolioImageRole = "primary" | "overview" | "detail" | "installation" | "process" | "context" | "reverse" | "reference";
+
+export type PortfolioPlanImage = {
+  role: PortfolioImageRole;
+  path: string;
+  caption?: string;
+};
+
+export type PortfolioPlanPage =
+  | {
+      type: "cover";
+      title: string;
+      subtitle?: string;
+      year?: string;
+      contact?: string;
+    }
+  | {
+      type: "short_statement";
+      text: string;
+    }
+  | {
+      type: "work_full_page";
+      workId?: string;
+      title: string;
+      year?: string;
+      medium?: string;
+      dimensions?: string;
+      imageRole?: PortfolioImageRole;
+      imagePath: string;
+      caption?: string;
+      note?: string;
+    }
+  | {
+      type: "work_with_details" | "installation_spread" | "series_grid";
+      workId?: string;
+      title: string;
+      year?: string;
+      medium?: string;
+      dimensions?: string;
+      layout?: "overview_plus_details" | "grid" | "spread";
+      images: PortfolioPlanImage[];
+      caption?: string;
+      note?: string;
+    }
+  | {
+      type: "contact" | "selected_works_list";
+      title?: string;
+      text?: string;
+      works?: string[];
+    };
+
+export type PortfolioSourceAudit = {
+  existingPortfolioSources: string[];
+  availableWorks: Array<{
+    id: number | string;
+    title: string;
+    year?: string;
+    medium?: string;
+    dimensions?: string;
+    imagePath?: string;
+  }>;
+  availableImageFiles: string[];
+  missingMetadata: string[];
+  lowConfidenceFacts: string[];
+  opportunitySpecificConstraints: {
+    maxPages?: number;
+    targetFileSizeMb?: number;
+    language?: string;
+    requiresCv?: boolean;
+    requiresBio?: boolean;
+    requiresStatement?: boolean;
+    requiresSinglePdf?: boolean;
+    rawMaterialsText?: string;
+  };
+  materialsActuallyUsed: string[];
+};
+
+export type PortfolioPlan = {
+  artistName: string;
+  portfolioTitle: string;
+  year: string;
+  language: string;
+  maxPages?: number;
+  targetFileSizeMb?: number;
+  pages: PortfolioPlanPage[];
+  excludedImages: Array<{
+    path: string;
+    reason: string;
+  }>;
+  qualityRisks: string[];
+};
+
 export type CvEntry = {
   id: number;
   category: string;

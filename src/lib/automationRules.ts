@@ -45,7 +45,7 @@ export const automationRuleText = {
   fileBoundaries:
     "Every generated package must separate internal-notes, user-review, and external-submission. Internal notes may contain matching logic, risks, missing information, work-selection rationale, AI judgment, and open call analysis. User review is Chinese-first and explains what the AI changed and why. External submission contains only formal institution-facing content and must not reveal automation traces or internal workflow language.",
   portfolioQuality:
-    "Portfolio work is a primary deliverable. Before generating a portfolio, inspect the artist's existing portfolio material as the first reference, then record web/design research references for artist portfolio, residency application portfolio, MFA artist portfolio, open call portfolio, and PDF portfolio conventions. Learn structure, rhythm, image/text ratio, caption conventions, whitespace, and restrained layout only; do not copy a specific design. After generation, run visual/structure quality checks and revise if layout is weak, images are too dense, captions are too long, statement text sounds generic, or the output ignores the artist's existing style.",
+    "Portfolio work is a primary deliverable. Before generating a portfolio, create a Portfolio Source Audit from data.works, formal images, source materials, existing portfolio files, and opportunity constraints. Then create a structured PortfolioPlan JSON; do not rely on free-text selectedWorks parsing. Default cover is Artist Name, Selected Works, year, and contact only if available; never use opportunity title, mock/test language, review committee language, placeholders, unknown/N/A/TBD, generated-by-AI wording, or selection rationale in external portfolio files. Select one clear primary image per work, distinguish overview/detail/installation/process/context images, and keep series grids large enough to read. Record at least three design/application references and use them only for structure, rhythm, image/text ratio, caption conventions, whitespace, and PDF norms. Every planned image must exist in an allowed material directory, be readable by sharp, copy into external-submission/images, and be referenced by portfolio.html; image failure must quality_block. After PDF generation, run a visual gate for missing images, page count, file size, forbidden terms, too-small images, blank pages, and caption readability.",
   publicFacingTone:
     "Public-facing CVs, portfolios, bios, statements, captions, form answers, and upload files must not expose application-packaging language such as 'for this open call', 'selected for', 'draft for', 'ready-to-copy', 'final candidate', or 'submission image for'. Never write No website, No Instagram, None, N/A, to be confirmed, details to be confirmed, draft, or placeholder in upload-ready materials. If a fact or link is missing, omit it from public-facing files unless the official form requires the field; keep uncertainty and selection logic in internal notes only. Tailor internally, but make the final portfolio read like a natural artist portfolio focused on works, materials, dates, dimensions, and context.",
   concreteWriting:
@@ -108,6 +108,9 @@ export function buildPromptRules(profile: ArtistProfile) {
     userReviewMustBeChineseFirst: true,
     testAndMockRunsMustBeIsolated: true,
     portfolioMustUseExistingPortfolioAndWebResearch: true,
+    portfolioMustUseSourceAuditAndStructuredPlan: true,
+    portfolioImagesMustFailClosed: true,
+    portfolioVisualGateMustInspectRenderedOutput: true,
     doNotInventLiveOpportunityFacts: true,
     projectMayFetchUserProvidedLinks: true,
     externalApiMustUseFetchedSourceTextForVerification: true,

@@ -89,6 +89,12 @@ export async function runProjectAutomation() {
       emailDraftEn: app.emailDraftEn,
       emailDraftZh: app.emailDraftZh,
       portfolioText: app.portfolioText,
+      portfolioPlan: app.portfolioPlan,
+      portfolioSourceAudit: app.portfolioSourceAudit,
+      selectedWorksStructured: app.selectedWorksStructured,
+      excludedWorksOrImages: app.excludedWorksOrImages,
+      missingMetadata: app.missingMetadata,
+      portfolioQualityRisks: app.portfolioQualityRisks,
       portfolioWebResearchReferences: app.portfolioWebResearchReferences,
       draftZh: app.draftZh ?? "",
       draftEn: app.draftEn ?? "",
@@ -102,7 +108,9 @@ export async function runProjectAutomation() {
     };
     const written = writeApplicationPackage(opportunity, draft, {
       runMode,
-      materialSources: data.materialSources
+      materialSources: data.materialSources,
+      profile: data.profile,
+      works: data.works
     });
     const packagePath = written.folder;
     const applicationId = runMode === "real" ? createApplication({
@@ -190,6 +198,37 @@ function buildAutomationPrompt(data: ReturnType<typeof readArtistData>, runMode:
         emailDraftEn: "formal English email body if needed",
         emailDraftZh: "formal Chinese email body if needed",
         portfolioText: "restrained portfolio text/captions; must be based on existing portfolio sources and recorded research",
+        portfolioSourceAudit: {
+          existingPortfolioSources: ["existing user portfolio files inspected before generation"],
+          availableWorks: ["works from data.works with title/year/medium/dimensions/imagePath"],
+          availableImageFiles: ["formal image files under artist-assets/works, source-materials, or inbox"],
+          missingMetadata: ["caption-critical missing facts; do not write unknown/N/A externally"],
+          lowConfidenceFacts: ["facts that need internal review"],
+          opportunitySpecificConstraints: "page count, image count, file size, language, CV/bio/statement, single-PDF requirements",
+          materialsActuallyUsed: ["portfolio/work/source files actually used"]
+        },
+        portfolioPlan: {
+          artistName: "artist name",
+          portfolioTitle: "Selected Works",
+          year: "current portfolio year",
+          language: "en | zh",
+          maxPages: "number if constrained by opportunity",
+          targetFileSizeMb: "number if constrained by opportunity",
+          pages: [
+            { type: "cover", title: "Artist Name", subtitle: "Selected Works", year: "2026", contact: "email / website only if available" },
+            { type: "short_statement", text: "120-180 concrete words only when appropriate" },
+            { type: "work_full_page", workId: "id", title: "Title", year: "Year", medium: "Medium", dimensions: "Dimensions", imageRole: "primary", imagePath: "absolute path", caption: "Title, year, medium, dimensions." },
+            { type: "work_with_details", workId: "id", title: "Title", layout: "overview_plus_details", images: [{ role: "overview", path: "absolute path" }, { role: "detail", path: "absolute path" }], caption: "Short formal caption." },
+            { type: "installation_spread", workId: "id", title: "Title", images: [{ role: "installation", path: "absolute path" }, { role: "detail", path: "absolute path" }], caption: "Short formal caption." },
+            { type: "series_grid", workId: "id", title: "Series title", images: [{ role: "overview", path: "absolute path" }], caption: "Short formal caption." }
+          ],
+          excludedImages: [{ path: "absolute path", reason: "low quality / process only / storage photo / metadata missing" }],
+          qualityRisks: ["risks that should block or warn internally"]
+        },
+        selectedWorksStructured: [{ workId: "id", title: "Title", imagePath: "absolute path", role: "primary", reason: "why selected" }],
+        excludedWorksOrImages: [{ id: "id", path: "absolute path", reason: "why excluded" }],
+        missingMetadata: ["formal caption fields missing"],
+        portfolioQualityRisks: ["image quality, metadata, page/file constraints, or source confidence risks"],
         portfolioWebResearchReferences: ["URLs or source names used for portfolio structure/design conventions"],
         draftZh: "legacy Chinese review fallback",
         draftEn: "legacy English formal fallback",

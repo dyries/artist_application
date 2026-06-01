@@ -1,4 +1,4 @@
-import type { SourceMaterial } from "@/types/domain";
+import type { PortfolioPlan, PortfolioSourceAudit, SourceMaterial } from "@/types/domain";
 import { checkPortfolioOutput, checkPortfolioPreparation } from "./portfolioQualityCheck";
 import { containsChinese, concreteWritingReminder, findAiCliches } from "./languageReviewCheck";
 import { assertExternalTextIsClean, findBannedExternalTerms } from "./outputSanitizer";
@@ -10,6 +10,8 @@ export type ApplicationQualityInput = {
   chineseReviewSummary?: string;
   selectedWorks: string;
   portfolioText: string;
+  portfolioPlan?: PortfolioPlan;
+  portfolioSourceAudit?: PortfolioSourceAudit;
   portfolioWebResearchReferences: string[];
   materialSources: Pick<SourceMaterial, "kind" | "title" | "fileName" | "filePath" | "content" | "analysis">[];
   runMode: "real" | "test" | "mock";
@@ -37,6 +39,8 @@ export function runApplicationQualityChecks(input: ApplicationQualityInput) {
   const portfolioPrep = checkPortfolioPreparation({
     portfolioText: input.portfolioText,
     selectedWorks: input.selectedWorks,
+    portfolioPlan: input.portfolioPlan,
+    portfolioSourceAudit: input.portfolioSourceAudit,
     materialSources: input.materialSources,
     webResearchReferences: input.portfolioWebResearchReferences
   });
@@ -44,7 +48,8 @@ export function runApplicationQualityChecks(input: ApplicationQualityInput) {
 
   const portfolioOutput = checkPortfolioOutput({
     portfolioText: input.portfolioText,
-    selectedWorks: input.selectedWorks
+    selectedWorks: input.selectedWorks,
+    portfolioPlan: input.portfolioPlan
   });
   if (!portfolioOutput.ok) internalIssues.push(...portfolioOutput.issues);
 

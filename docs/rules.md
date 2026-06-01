@@ -67,8 +67,14 @@
 - 每件入选作品首先要完整、清楚地呈现作品本体；不能只放局部、现场气氛图、过程图或被裁切过的碎片来代表作品。
 - 如果作品有很多照片，选择顺序是：先选完整作品图，再根据需要补充现场、细节、空间关系、过程或不同角度图片。
 - 生成新作品集前，必须先检查资料库里已有作品集，尤其是 `artist-assets/inbox/portfolio/` 和 `artist-assets/source-materials/` 中的旧作品集 PDF/文档。
+- 生成作品集前必须先写 `internal-notes/portfolio-source-audit.json`，覆盖 `data.works` 正式作品记录、正式图片、source materials、已有 portfolio、机会页数/图片数/文件大小/语言/CV/bio/statement/单 PDF 要求、缺失 metadata、低置信事实和实际使用材料。
+- 作品集渲染必须基于结构化 `PortfolioPlan` JSON，并写入 `internal-notes/portfolio-plan.json`。不得再依赖 `selectedWorks` 自由文本或 `Image:` 正则解析来决定页面结构。
+- `PortfolioPlan` 必须明确页面类型、作品顺序、作品主图、installation/series 的 overview/detail/context/process 角色、排除图片和质量风险。External portfolio 只输出干净的 `portfolio.html`/`portfolio.pdf`，不输出内部判断。
+- 作品集封面默认是艺术家姓名、`Selected Works`、年份和可用联系方式/网站；不要默认把 opportunity title 当作品集主标题。机会匹配信息只能放 internal notes 或 user review。
 - 生成新作品集前还必须记录联网/设计参考，只学习结构、节奏、图文比例、caption 方式、留白和 PDF 作品集惯例，不抄袭具体设计。
-- 作品集生成后必须做视觉/结构质量检查；图片过密、caption 过长、statement 有 AI 味、未参考用户已有风格时，应标记 `quality_blocked` 并返工。
+- 至少需要 3 个作品集设计/申请参考；没有已有 portfolio source 或参考不足 3 个时，必须标记 `quality_blocked`。
+- 作品集生成后必须做真实视觉/结构质量检查；检查渲染后的 HTML/PDF 是否缺图、页面空白过多、图片过小、caption 太小、禁用词残留、页数/文件大小超限、planned image 静默跳过。失败时标记 `quality_blocked` 并写入 internal issues。
+- PortfolioPlan 引用的每张正式图片都必须存在于 `artist-assets/works/`、`artist-assets/source-materials/` 或 `artist-assets/inbox/`，能被 `sharp` 读取，能复制到 `external-submission/images/`，并能被 `portfolio.html` 引用；任何失败都不能生成 `package_ready_for_final_review`。
 - 作品集排版必须专业：图片为主，文字克制，caption 对齐一致，图片不拉伸、不乱裁、不用默认文档堆叠。
 - 作品尺寸必须以 cm 为单位，不能把图片像素尺寸当作作品尺寸展示。
 - 展览如果要求真实作品、运输、安装或当前可用作品，不能默认旧作品还在手里；需要先让用户确认哪些作品可以参展。

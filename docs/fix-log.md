@@ -1,5 +1,61 @@
 # Fix Log
 
+## 2026-06-01 15:46 CST
+
+### Scope
+
+- Reworked portfolio generation from free-text parsing toward a structured, fail-closed application portfolio pipeline.
+
+### Issues Found
+
+- Portfolio rendering depended on `selectedWorks` text and `Image:` regex parsing.
+- Missing or disallowed images could be skipped while still producing external portfolio output.
+- The cover could inherit opportunity/mock-review framing instead of reading as a real artist portfolio.
+- Quality checks did not persist a source audit or structured page plan and did not strongly gate page count, file size, image assets, or forbidden terms.
+
+### Root Cause
+
+- Portfolio planning, image validation, rendering, and visual QA were collapsed into a thin renderer path.
+- AI schema only asked for loose portfolio text and selected works rather than a structured plan with image roles and quality risks.
+
+### Changes
+
+- Added `PortfolioSourceAudit`, `PortfolioPlan`, page types, and image-role domain types.
+- Added schema fields for `portfolioPlan`, `portfolioSourceAudit`, `selectedWorksStructured`, excluded images, missing metadata, and portfolio risks.
+- Updated package writing to emit `internal-notes/portfolio-source-audit.json` and `internal-notes/portfolio-plan.json`.
+- Replaced selectedWorks parsing in the renderer with PortfolioPlan rendering for cover, statement, full work, detail, installation, series grid, contact, and selected-work-list pages.
+- Changed portfolio image copying to validate allowed roots, sharp metadata, copy success, optimization, and too-small-image risk before approval.
+- Added a visual gate for PDF render status, forbidden external terms, planned image assets, page count, file size, reference count, caption readability, and basic rendered DOM image visibility.
+- Synchronized portfolio rules in docs and automation machine rules, and added structural tests for the new pipeline.
+
+### Files Changed
+
+- `docs/fix-log.md`
+- `docs/portfolio_generation_rules.md`
+- `docs/rules.md`
+- `src/lib/automationRules.ts`
+- `src/lib/package.ts`
+- `src/lib/portfolioQualityCheck.ts`
+- `src/lib/portfolioRenderer.ts`
+- `src/lib/projectAutomation.ts`
+- `src/lib/qualityChecks.ts`
+- `src/lib/schemas.ts`
+- `src/types/domain.ts`
+- `tests/portfolio-generation.test.mjs`
+
+### Verification
+
+```bash
+npm run typecheck
+npm test
+```
+
+`npm run typecheck` and `npm test` passed after fixing TypeScript union narrowing issues.
+
+### Remaining Notes
+
+- The visual gate uses Playwright HTML/PDF rendering and DOM checks. A deeper pixel-level PDF raster analysis can still be added later if packages need stricter print-production QA.
+
 ## 2026-05-26 - Application automation boundary and quality refactor
 
 ### Problem

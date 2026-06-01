@@ -18,6 +18,97 @@ const opportunityStatusSchema = z.enum([
   "rejected"
 ]);
 
+const portfolioImageRoleSchema = z.enum(["primary", "overview", "detail", "installation", "process", "context", "reverse", "reference"]);
+
+const portfolioPlanImageSchema = z.object({
+  role: portfolioImageRoleSchema.default("primary"),
+  path: z.string().default(""),
+  caption: z.string().optional()
+}).strict();
+
+export const portfolioPlanSchema = z.object({
+  artistName: z.string().default(""),
+  portfolioTitle: z.string().default("Selected Works"),
+  year: z.string().default(""),
+  language: z.string().default("en"),
+  maxPages: z.number().int().positive().optional(),
+  targetFileSizeMb: z.number().positive().optional(),
+  pages: z.array(z.discriminatedUnion("type", [
+    z.object({
+      type: z.literal("cover"),
+      title: z.string().default(""),
+      subtitle: z.string().optional(),
+      year: z.string().optional(),
+      contact: z.string().optional()
+    }).strict(),
+    z.object({
+      type: z.literal("short_statement"),
+      text: z.string().default("")
+    }).strict(),
+    z.object({
+      type: z.literal("work_full_page"),
+      workId: z.string().optional(),
+      title: z.string().default(""),
+      year: z.string().optional(),
+      medium: z.string().optional(),
+      dimensions: z.string().optional(),
+      imageRole: portfolioImageRoleSchema.optional(),
+      imagePath: z.string().default(""),
+      caption: z.string().optional(),
+      note: z.string().optional()
+    }).strict(),
+    z.object({
+      type: z.enum(["work_with_details", "installation_spread", "series_grid"]),
+      workId: z.string().optional(),
+      title: z.string().default(""),
+      year: z.string().optional(),
+      medium: z.string().optional(),
+      dimensions: z.string().optional(),
+      layout: z.enum(["overview_plus_details", "grid", "spread"]).optional(),
+      images: z.array(portfolioPlanImageSchema).default([]),
+      caption: z.string().optional(),
+      note: z.string().optional()
+    }).strict(),
+    z.object({
+      type: z.enum(["contact", "selected_works_list"]),
+      title: z.string().optional(),
+      text: z.string().optional(),
+      works: z.array(z.string()).optional()
+    }).strict()
+  ])).default([]),
+  excludedImages: z.array(z.object({
+    path: z.string().default(""),
+    reason: z.string().default("")
+  }).strict()).default([]),
+  qualityRisks: z.array(z.string()).default([])
+}).strict();
+
+const portfolioSourceAuditSchema = z.object({
+  existingPortfolioSources: z.array(z.string()).default([]),
+  availableWorks: z.array(z.object({
+    id: z.union([z.number(), z.string()]),
+    title: z.string(),
+    year: z.string().optional(),
+    medium: z.string().optional(),
+    dimensions: z.string().optional(),
+    imagePath: z.string().optional()
+  }).passthrough()).default([]),
+  availableImageFiles: z.array(z.string()).default([]),
+  missingMetadata: z.array(z.string()).default([]),
+  lowConfidenceFacts: z.array(z.string()).default([]),
+  opportunitySpecificConstraints: z.object({
+    maxPages: z.number().int().positive().optional(),
+    targetFileSizeMb: z.number().positive().optional(),
+    language: z.string().optional(),
+    requiresCv: z.boolean().optional(),
+    requiresBio: z.boolean().optional(),
+    requiresStatement: z.boolean().optional(),
+    requiresSinglePdf: z.boolean().optional(),
+    rawMaterialsText: z.string().optional()
+  }).passthrough().default({}),
+  materialsActuallyUsed: z.array(z.string()).default([])
+}).strict();
+
 export const artistPayloadSchema = z.object({
   profile: z.object({
     id: z.number().default(1),
@@ -129,6 +220,22 @@ export const aiAutomationResponseSchema = z.object({
     emailDraftEn: z.string().optional(),
     emailDraftZh: z.string().optional(),
     portfolioText: z.string().optional(),
+    portfolioPlan: portfolioPlanSchema.optional(),
+    portfolioSourceAudit: portfolioSourceAuditSchema.optional(),
+    selectedWorksStructured: z.array(z.object({
+      workId: z.union([z.number(), z.string()]).optional(),
+      title: z.string().default(""),
+      imagePath: z.string().optional(),
+      role: portfolioImageRoleSchema.optional(),
+      reason: z.string().optional()
+    }).strict()).default([]),
+    excludedWorksOrImages: z.array(z.object({
+      id: z.union([z.number(), z.string()]).optional(),
+      path: z.string().optional(),
+      reason: z.string().default("")
+    }).strict()).default([]),
+    missingMetadata: z.array(z.string()).default([]),
+    portfolioQualityRisks: z.array(z.string()).default([]),
     portfolioWebResearchReferences: z.array(z.string()).default([]),
     draftZh: z.string().optional(),
     draftEn: z.string().optional(),
