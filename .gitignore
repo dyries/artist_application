@@ -1,0 +1,42 @@
+.next/
+node_modules/
+tsconfig.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
+backups/
+
+# Loose local notes at the repository root can contain private planning details.
+/*.docx
+/*.pdf
+
+# Local databases and browser state contain private project data.
+data/*.sqlite
+data/*.sqlite-*
+data/browser-profile/
+
+# User source materials are private. Keep only category placeholders.
+artist-assets/inbox/**
+!artist-assets/inbox/
+!artist-assets/inbox/*/
+!artist-assets/inbox/*/.gitkeep
+artist-assets/source-materials/**
+!artist-assets/source-materials/
+!artist-assets/source-materials/.gitkeep
+artist-assets/works/**
+!artist-assets/works/
+!artist-assets/works/.gitkeep
+
+# Generated reports, application packages, Codex snapshots, previews, and final submissions
+# are local outputs. Keep only directory placeholders.
+generated/**
+!generated/
+!generated/applications/
+!generated/applications/.gitkeep
+!generated/codex/
+!generated/codex/.gitkeep
+!generated/reports/
+!generated/reports/.gitkeep
+!generated/final-submissions/
+!generated/final-submissions/.gitkeep
