@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/apiResponse";
+import { archiveApprovedSubmission } from "@/lib/finalApproval";
 import { getApplication, logActivity, readArtistData, updateOpportunityStatus } from "@/lib/db";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -14,14 +15,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (!application) {
       return NextResponse.json({ error: "Application not found" }, { status: 404 });
     }
+    const data = readArtistData();
+    const opportunity = data.opportunities.find((item) => item.id === application.opportunityId) || null;
     if (body.decision === "approve_final_submission_package") {
+      const archive = archiveApprovedSubmission(application, opportunity);
       updateOpportunityStatus(application.opportunityId, "approved_for_submission");
       logActivity({
         action: "final_submission_package_approved",
         entityType: "application",
         entityId: applicationId,
         summary: "User approved the final submission package. External submission can be assisted next, but payment/login/captcha/legal/privacy gates still require user action.",
-        metadata: { opportunityId: application.opportunityId }
+        metadata: { opportunityId: application.opportunityId, archive }
       });
     } else if (body.decision === "request_revision") {
       updateOpportunityStatus(application.opportunityId, "quality_blocked");

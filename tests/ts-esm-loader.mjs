@@ -5,6 +5,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const root = process.cwd();
 
 export async function resolve(specifier, context, nextResolve) {
+  if (specifier === "next/server") {
+    return nextResolve("next/server.js", context);
+  }
   if (specifier.startsWith("@/")) {
     return resolveCandidate(path.join(root, "src", specifier.slice(2)));
   }

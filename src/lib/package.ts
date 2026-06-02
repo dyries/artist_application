@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import { generatedApplicationsDir, projectRoot, materialsInboxDir, sourceMaterialsDir, worksDir } from "./paths";
 import { writeGeneratedDocuments } from "./documentOutputs";
 import { runApplicationQualityChecks } from "./qualityChecks";
-import { sanitizeExternalText } from "./outputSanitizer";
+import { findBannedExternalTerms, sanitizeExternalText } from "./outputSanitizer";
 import { renderHtmlToPdf, renderPortfolioPackage } from "./portfolioRenderer";
 import { checkExternalSubmissionFiles } from "./fileQualityCheck";
 import { analyzePortfolioImages } from "./portfolioImageAnalysis";
@@ -81,6 +81,7 @@ export function writeApplicationPackage(opportunity: Opportunity, app: PackageDr
   const internalDir = path.join(folder, "internal-notes");
   const reviewDir = path.join(folder, "user-review");
   const externalDir = path.join(folder, "external-submission");
+  fs.rmSync(folder, { recursive: true, force: true });
   fs.mkdirSync(internalDir, { recursive: true });
   fs.mkdirSync(reviewDir, { recursive: true });
   fs.mkdirSync(externalDir, { recursive: true });
@@ -135,7 +136,6 @@ export function writeApplicationPackage(opportunity: Opportunity, app: PackageDr
     ...quality.internalIssues,
     ...portfolioBlockingIssues.map((issue) => `Portfolio blocking issue: ${issue}`)
   ];
-  const manifestStatus = quality.passed && portfolioBlockingIssues.length === 0 ? "package_ready_for_final_review" : "quality_blocked";
 
   fs.writeFileSync(path.join(internalDir, "open-call-analysis.md"), renderOpportunityInternalNotes(opportunity, app), "utf8");
   fs.writeFileSync(path.join(internalDir, "quality-report.json"), JSON.stringify(quality, null, 2), "utf8");
@@ -165,24 +165,33 @@ export function writeApplicationPackage(opportunity: Opportunity, app: PackageDr
   fs.writeFileSync(path.join(folder, "opportunity.json"), JSON.stringify(opportunity, null, 2), "utf8");
   const fileQuality = checkExternalSubmissionFiles(externalDir);
   fs.writeFileSync(path.join(internalDir, "file-quality-check.json"), JSON.stringify(fileQuality, null, 2), "utf8");
-  const fileQualityBlockingIssues = fileQuality.issues.filter((issue) => issue.startsWith("Unsupported external file extension"));
-  const fileQualityWarnings = fileQuality.issues.filter((issue) => !fileQualityBlockingIssues.includes(issue));
-  if (fileQualityBlockingIssues.length) {
-    internalIssues.push(...fileQualityBlockingIssues.map((issue) => `External file check: ${issue}`));
+  const readiness = evaluatePackageReadiness({
+    opportunity,
+    sanitized,
+    externalDir,
+    qualityPassed: quality.passed,
+    fileQuality,
+    portfolioResult: finalPortfolioResult,
+    renderedPortfolio: lastRender
+  });
+  fs.writeFileSync(path.join(internalDir, "package-readiness-check.json"), JSON.stringify(readiness, null, 2), "utf8");
+  const fileQualityWarnings: string[] = [];
+  if (readiness.issues.length) {
+    internalIssues.push(...readiness.issues.map((issue) => `Readiness gate: ${issue}`));
     fs.writeFileSync(path.join(internalDir, "internal-issues.md"), internalIssues.map((item) => `- ${item}`).join("\n"), "utf8");
   }
-  fs.writeFileSync(path.join(reviewDir, "最终提交前检查清单-中文.md"), renderChineseChecklist(opportunity, app, quality.passed && fileQualityBlockingIssues.length === 0 && portfolioBlockingIssues.length === 0, internalIssues, finalPortfolioResult), "utf8");
+  fs.writeFileSync(path.join(reviewDir, "最终提交前检查清单-中文.md"), renderChineseChecklist(opportunity, app, readiness.passed, internalIssues, finalPortfolioResult), "utf8");
   writeGeneratedDocuments(reviewDir, {
     title: "最终提交包中文审核",
     subtitle: [opportunity.title, opportunity.organization, opportunity.deadline].filter(Boolean).join(" | "),
     sections: [
       { heading: "机会与风险", body: userReviewZh },
-      { heading: "提交前检查", body: renderChineseChecklist(opportunity, app, quality.passed && portfolioBlockingIssues.length === 0, internalIssues, finalPortfolioResult) },
+      { heading: "提交前检查", body: renderChineseChecklist(opportunity, app, readiness.passed, internalIssues, finalPortfolioResult) },
       { heading: "英文正式材料中文说明", body: app.chineseReviewSummary || app.draftZh || "" }
     ].filter((section) => section.body.trim().length > 0)
   });
 
-  const finalStatus = manifestStatus === "package_ready_for_final_review" && fileQualityBlockingIssues.length === 0 ? manifestStatus : "quality_blocked";
+  const finalStatus = readiness.passed ? "package_ready_for_final_review" : "quality_blocked";
   const manifest = {
     manifestVersion: 2,
     generatedAt: new Date().toISOString(),
@@ -207,6 +216,8 @@ export function writeApplicationPackage(opportunity: Opportunity, app: PackageDr
       externalSubmission: "external-submission"
     },
     quality,
+    readiness,
+    opportunityVerification: readiness.opportunityVerification,
     portfolio: {
       html: path.relative(folder, lastRender.htmlPath),
       pdf: lastRender.pdfPath ? path.relative(folder, lastRender.pdfPath) : null,
@@ -241,15 +252,176 @@ export function writeApplicationPackage(opportunity: Opportunity, app: PackageDr
 function sanitizeExternalMap(files: Record<string, string>) {
   const texts: Record<string, string> = {};
   const internalIssues: string[] = [];
+  const fileReports: Record<string, {
+    originalCharacters: number;
+    sanitizedCharacters: number;
+    originalWords: number;
+    sanitizedWords: number;
+    removedCharacters: number;
+    remainingBannedTerms: string[];
+  }> = {};
   for (const [fileName, text] of Object.entries(files)) {
-    const sanitized = sanitizeExternalText(text || "");
+    const original = text || "";
+    const sanitized = sanitizeExternalText(original);
     texts[fileName] = sanitized.text;
+    fileReports[fileName] = {
+      originalCharacters: original.length,
+      sanitizedCharacters: sanitized.text.length,
+      originalWords: wordCount(original),
+      sanitizedWords: wordCount(sanitized.text),
+      removedCharacters: Math.max(0, original.length - sanitized.text.length),
+      remainingBannedTerms: sanitized.remainingBannedTerms
+    };
     internalIssues.push(...sanitized.internalIssues.map((issue) => `${fileName}: ${issue}`));
     if (sanitized.remainingBannedTerms.length > 0) {
       internalIssues.push(`${fileName}: Remaining forbidden terms: ${sanitized.remainingBannedTerms.join(", ")}`);
     }
   }
-  return { texts, internalIssues };
+  return { texts, internalIssues, fileReports };
+}
+
+function evaluatePackageReadiness(input: {
+  opportunity: Opportunity;
+  sanitized: ReturnType<typeof sanitizeExternalMap>;
+  externalDir: string;
+  qualityPassed: boolean;
+  fileQuality: ReturnType<typeof checkExternalSubmissionFiles>;
+  portfolioResult: ReturnType<typeof generatePortfolioWithAutoRepair>;
+  renderedPortfolio: NonNullable<ReturnType<typeof generatePortfolioWithAutoRepair>["renderedPortfolio"]>;
+}) {
+  const issues: string[] = [];
+  const requiredFiles = requiredExternalFiles(input.opportunity, input.portfolioResult.plan.portfolioConstraints);
+  const requiredFileStatus = requiredFiles.map((fileName) => {
+    const filePath = path.join(input.externalDir, fileName);
+    const exists = fs.existsSync(filePath);
+    const bytes = exists ? fs.statSync(filePath).size : 0;
+    const readable = exists && bytes > 0;
+    if (!readable) issues.push(`Required external file missing or empty: ${fileName}`);
+    return { fileName, exists, bytes, readable };
+  });
+
+  for (const [fileName, report] of Object.entries(input.sanitized.fileReports)) {
+    const originalHadSubstance = report.originalWords >= 20 || report.originalCharacters >= 120;
+    const deletesTooMuch = report.originalCharacters > 0 && report.removedCharacters / report.originalCharacters > 0.55;
+    if (report.remainingBannedTerms.length) issues.push(`${fileName} still contains forbidden external terms: ${report.remainingBannedTerms.join(", ")}`);
+    if (originalHadSubstance && (deletesTooMuch || report.sanitizedWords < 20)) {
+      issues.push(`${fileName} became too short after sanitizer removed unsafe language.`);
+    }
+  }
+
+  for (const file of input.fileQuality.files) {
+    const filePath = path.join(input.externalDir, file.path);
+    if (/\.(md|txt|html)$/i.test(file.extension)) {
+      const hits = findBannedExternalTerms(externalLanguageScanText(filePath, file.extension));
+      if (hits.length) issues.push(`${file.path} contains forbidden external language after write: ${hits.join(", ")}`);
+    }
+  }
+
+  const opportunityVerification = verifyOpportunityReadiness(input.opportunity);
+  if (!opportunityVerification.passed) issues.push(...opportunityVerification.issues);
+  if (!input.qualityPassed) issues.push("Application quality checks did not pass.");
+  if (!input.fileQuality.passed) issues.push(...input.fileQuality.issues.map((issue) => `External file quality failed: ${issue}`));
+  if (!input.renderedPortfolio.visualReport.passed) {
+    issues.push("Portfolio visual gate did not pass.");
+  }
+  if (input.portfolioResult.blockingIssues.length) {
+    issues.push(...input.portfolioResult.blockingIssues.map((issue) => `Portfolio blocked: ${issue.message}`));
+  }
+  if (input.renderedPortfolio.visualReport.missingImages.length) {
+    issues.push(`Portfolio has missing image references: ${input.renderedPortfolio.visualReport.missingImages.join(", ")}`);
+  }
+
+  return {
+    checkedAt: new Date().toISOString(),
+    passed: issues.length === 0,
+    issues: [...new Set(issues)],
+    requiredFiles: requiredFileStatus,
+    sanitizer: input.sanitized.fileReports,
+    fileQualityBlockingIssues: input.fileQuality.issues,
+    fileQuality: input.fileQuality,
+    portfolioGate: {
+      passed: input.renderedPortfolio.visualReport.passed,
+      pageCount: input.renderedPortfolio.visualReport.pageCount,
+      aestheticScore: input.renderedPortfolio.visualReport.aestheticScore,
+      professionalPdfScore: input.renderedPortfolio.visualReport.professionalPdfScore,
+      missingImages: input.renderedPortfolio.visualReport.missingImages,
+      blockingIssues: input.renderedPortfolio.visualReport.blockingIssues,
+      autoFixableIssues: input.renderedPortfolio.visualReport.autoFixableIssues
+    },
+    opportunityVerification
+  };
+}
+
+function externalLanguageScanText(filePath: string, extension: string) {
+  const text = fs.readFileSync(filePath, "utf8");
+  if (extension !== ".html") return text;
+  return text
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function requiredExternalFiles(opportunity: Opportunity, constraints: PortfolioConstraints) {
+  const text = `${opportunity.materials}\n${opportunity.rawContent}`.toLowerCase();
+  const files = new Set(["file-checklist.md"]);
+  if (!constraints.requiresImageUploadOnly) files.add("portfolio.pdf");
+  if (/\bcv\b|curriculum vitae/.test(text)) files.add("cv.md");
+  if (/\bbio\b|biography/.test(text)) files.add("bio-en.md");
+  if (/statement/.test(text)) files.add("statement-en.md");
+  if (/email/.test(text) || opportunity.submissionMethod === "email") files.add("email-en.md");
+  if (/application|answer|proposal|question|form/.test(text)) files.add("application-answers-en.md");
+  return [...files];
+}
+
+function verifyOpportunityReadiness(opportunity: Opportunity) {
+  const sourceText = `${opportunity.rawContent || ""}\n${opportunity.summary || ""}\n${opportunity.risks || ""}`;
+  const sourceUrl = opportunity.url || "";
+  const fields = [
+    { name: "deadline", value: opportunity.deadline },
+    { name: "fee", value: opportunity.fee },
+    { name: "funding", value: opportunity.funding },
+    { name: "eligibility", value: opportunity.eligibility },
+    { name: "materials", value: opportunity.materials },
+    { name: "method", value: opportunity.submissionMethod === "unknown" ? "" : opportunity.submissionMethod },
+    { name: "location", value: opportunity.location }
+  ];
+  const issues: string[] = [];
+  const facts = fields.map((field) => {
+    const value = String(field.value || "").trim();
+    const unclear = !value || /\b(unclear|unknown|n\/a|tbd|to be confirmed|not specified)\b/i.test(value);
+    const excerpt = sourceExcerptForValue(sourceText, value);
+    const hasSource = Boolean(sourceUrl && (excerpt || sourceText.length >= 80));
+    const confidence = unclear ? "low" : excerpt ? "high" : hasSource ? "medium" : "low";
+    if (unclear) issues.push(`Opportunity ${field.name} is unclear or missing.`);
+    if (!hasSource) issues.push(`Opportunity ${field.name} lacks source excerpt or source URL.`);
+    return {
+      field: field.name,
+      value,
+      sourceUrl,
+      sourceExcerpt: excerpt,
+      confidence
+    };
+  });
+  if (/\b(unclear eligibility|unclear fees?|payment|pay-to-show|legal|privacy|captcha|login)\b/i.test(opportunity.risks || "")) {
+    issues.push("Opportunity risks include a hard stop or unclear eligibility/fees.");
+  }
+  return { passed: issues.length === 0, issues: [...new Set(issues)], facts };
+}
+
+function sourceExcerptForValue(sourceText: string, value: string) {
+  if (!sourceText.trim() || !value.trim()) return "";
+  const normalizedValue = value.toLowerCase().slice(0, 80);
+  const normalizedSource = sourceText.toLowerCase();
+  const index = normalizedSource.indexOf(normalizedValue);
+  if (index >= 0) return sourceText.slice(Math.max(0, index - 80), Math.min(sourceText.length, index + value.length + 160)).trim();
+  const sentence = sourceText.split(/(?<=[.!?。！？])\s+/).find((item) => item.toLowerCase().includes(value.split(/\s+/)[0]?.toLowerCase() || ""));
+  return sentence?.trim().slice(0, 300) || "";
+}
+
+function wordCount(text: string) {
+  return text.split(/\s+/).filter(Boolean).length;
 }
 
 function renderDefaultUserReview(opportunity: Opportunity, app: PackageDraft, externalTexts: Record<string, string>) {
@@ -1703,7 +1875,7 @@ function renderCombinedApplicationHtml(externalTexts: Record<string, string>, po
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Combined Application Package</title>
+<title>Combined Submission Materials</title>
 <style>
 @page { size: A4; margin: 18mm; }
 body { margin: 0; color: #191919; font-family: Arial, Helvetica, sans-serif; }
@@ -1713,7 +1885,7 @@ pre { margin: 0; white-space: pre-wrap; font-family: Arial, Helvetica, sans-seri
 img { max-width: 100%; object-fit: contain; }
 </style>
 </head>
-<body>${sections || `<section class="page"><h1>Combined Application Package</h1><pre>No external text files were required.</pre></section>`}${portfolioSections}</body>
+<body>${sections || `<section class="page"><h1>Combined Submission Materials</h1><pre>No external text files were required.</pre></section>`}${portfolioSections}</body>
 </html>`;
 }
 

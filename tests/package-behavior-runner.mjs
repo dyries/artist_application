@@ -45,7 +45,7 @@ const opportunityBase = {
   location: "Online",
   deadline: "2026-12-31",
   fee: "Free",
-  funding: "None",
+  funding: "No funding listed",
   eligibility: "International artists",
   materials: "Submit a formal portfolio PDF. Include individual image uploads if available.",
   submissionMethod: "email",
@@ -54,7 +54,16 @@ const opportunityBase = {
   risks: "",
   status: "selected_by_user",
   source: "test",
-  rawContent: "",
+  rawContent: [
+    "Fixture Space open call source page.",
+    "Location: Online.",
+    "Deadline: 2026-12-31.",
+    "Fee: Free.",
+    "Funding: No funding listed.",
+    "Eligibility: International artists.",
+    "Materials: Submit a formal portfolio PDF. Include individual image uploads if available.",
+    "Submission method: email."
+  ].join("\n"),
   createdAt: "",
   updatedAt: ""
 };
@@ -116,6 +125,7 @@ const baseDraft = {
   checklist: "Portfolio PDF",
   selectedWorks: "",
   externalApplicationAnswersEn: "Formal answer.",
+  emailDraftEn: "Dear Fixture Space,\n\nPlease find the attached portfolio materials for consideration.\n\nBest regards,\nFanzhou Lu",
   portfolioWebResearchReferences: ["reference one", "reference two", "reference three"]
 };
 
@@ -166,6 +176,8 @@ assert.ok(longestStrategyRun(visual.repeatedLayoutRuns) <= 3);
 assert.ok(visual.aestheticScore >= 85);
 assert.ok(visual.professionalPdfScore >= 85);
 assert.equal(manifest.status, "package_ready_for_final_review");
+assert.equal(manifest.readiness.passed, true);
+assert.equal(manifest.opportunityVerification.passed, true);
 assert.ok(Array.isArray(visual.pageScreenshots));
 assert.ok(visual.pageScreenshots.every((screenshotPath) => fs.existsSync(path.join(result.folder, "internal-notes", screenshotPath))));
 assert.doesNotMatch(html, forbiddenPattern);
