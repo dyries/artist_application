@@ -756,6 +756,9 @@ function isCriticalUnresolvedPortfolioIssue(code: string) {
     "cover_looks_like_dev_page",
     "portfolio_degenerated_to_single_image_pages",
     "fallback_pdf_not_professional",
+    "duplicate_images",
+    "small_full_page_image",
+    "images_too_small_relative_to_page",
     "aesthetic_score_too_low",
     "professional_pdf_score_too_low"
   ].includes(code);
@@ -894,7 +897,10 @@ function buildAutomaticPortfolioPlan(
       layoutReferenceReason: "Application portfolio references keep statements concise and separate from image captions."
     }
   ];
-  const imagePages = buildProjectBasedImagePages(projectGroups, constraints.maximumPages - 4, layoutResearch, imageAnalysisByPath);
+  const desiredTotalPages = selectedWorks.length >= Math.max(8, constraints.minimumPages - 4)
+    ? Math.min(Math.max(18, constraints.targetPages), Math.min(22, constraints.maximumPages))
+    : constraints.minimumPages;
+  const imagePages = buildProjectBasedImagePages(projectGroups, Math.max(1, desiredTotalPages - 4), layoutResearch, imageAnalysisByPath);
   pages.push(...imagePages);
   pages.push({
     type: "selected_works_list",
@@ -951,7 +957,7 @@ function buildAutomaticPortfolioPlan(
   });
   const summarized = attachCuratorialSummary({
     ...planned,
-    pages: planned.pages.slice(0, constraints.maximumPages)
+    pages: planned.pages.slice(0, constraints.source === "default" ? Math.min(22, constraints.maximumPages) : constraints.maximumPages)
   });
   return repairCuratorialPlan(summarized, audit, layoutResearch).plan;
 }
@@ -1280,16 +1286,33 @@ function expandPlanTowardTarget(plan: PortfolioPlan): PortfolioPlan {
     ? Math.min(plan.portfolioConstraints.targetPages, plan.portfolioConstraints.maximumPages)
     : plan.portfolioConstraints.minimumPages;
   let nextIndex = 0;
+  const usedExpansionKeys = new Set(pages.map(expansionKeyForPage).filter(Boolean));
   while (pages.length < desiredPageCount && pages.length < plan.portfolioConstraints.maximumPages && imagePages.length > 0) {
     const source = imagePages[nextIndex % imagePages.length];
     const detail = detailPageFrom(source, nextIndex);
-    if (!detail) break;
+    nextIndex += 1;
+    if (!detail) {
+      if (nextIndex > imagePages.length * 4) break;
+      continue;
+    }
+    const key = expansionKeyForPage(detail);
+    if (key && usedExpansionKeys.has(key)) {
+      if (nextIndex > imagePages.length * 4) break;
+      continue;
+    }
+    if (key) usedExpansionKeys.add(key);
     const insertAt = Math.max(2, pages.length - 1);
     pages.splice(insertAt, 0, detail);
-    nextIndex += 1;
     if (nextIndex > 80) break;
   }
   return attachCuratorialSummary({ ...plan, pages: pages.slice(0, plan.portfolioConstraints.maximumPages) });
+}
+
+function expansionKeyForPage(page: PortfolioPlanPage) {
+  const strategy = layoutStrategyForPage(page);
+  if (page.type === "work_full_page" || page.type === "single_work_full_page") return `${strategy}:${page.imagePath}`;
+  if ("images" in page) return `${strategy}:${page.images.map((image) => image.path).sort().join("|")}`;
+  return "";
 }
 
 function emptyCuratorialSummary(): PortfolioPlan["curatorialSummary"] {
@@ -1564,7 +1587,7 @@ function removeDuplicateImagePages(pages: PortfolioPlanPage[]) {
       return page;
     }
     if ("images" in page) {
-      const isOverview = /overview|grid/.test(page.layoutStrategy || page.type);
+      const isOverview = /overview|grid|installation/.test(page.layoutStrategy || page.type);
       const images = page.images.filter((image) => {
         const use = uses.get(image.path) || { total: 0, nonOverview: 0, fullPage: 0 };
         const nextNonOverview = use.nonOverview + (isOverview ? 0 : 1);
@@ -1914,7 +1937,7 @@ function inferPortfolioConstraints(text: string): PortfolioConstraints {
   const maxPages = inferMaxPages(text);
   const minPages = inferMinPages(text);
   const explicitRange = text.match(/(\d{1,2})\s*[-–]\s*(\d{1,2})\s+pages?/i);
-  const exactPages = text.match(/(?:portfolio|pdf|document)[^\n.]{0,80}\b(\d{1,2})\s+pages?\b/i);
+  const exactPages = text.match(/(?:portfolio|pdf|document)[^\n.]{0,80}\b(\d{1,2})\s+pages?\b/i) || text.match(/\b(\d{1,2})\s+pages?\b/i);
   const targetFileSizeMb = inferTargetFileSizeMb(text);
   const imageRange = text.match(/(\d{1,2})\s*[-–]\s*(\d{1,2})\s+images?/i);
   const exactImageCount = text.match(/\b(?:upload|submit)[^\n.]{0,60}\b(\d{1,2})\s+(?:individual\s+)?images?\b/i);

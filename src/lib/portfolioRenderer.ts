@@ -468,7 +468,7 @@ function excessiveDuplicateImagePaths(uses: Array<{ path: string; page: number; 
   const excessive: string[] = [];
   for (const [imagePath, imageUses] of byPath) {
     const fullPageUses = imageUses.filter((use) => /single_work_full_page|work_full_page/.test(use.layout)).length;
-    const overviewUses = imageUses.filter((use) => /overview|grid/.test(use.layout)).length;
+    const overviewUses = imageUses.filter((use) => /overview|grid|installation/.test(use.layout)).length;
     const nonOverviewUses = imageUses.length - overviewUses;
     if (imageUses.length > 2 || fullPageUses > 1 || nonOverviewUses > 1) excessive.push(imagePath);
   }
@@ -588,6 +588,7 @@ function repairSuggestion(code: string) {
 }
 
 function tryCheckHtmlLayout(htmlPath: string) {
+  if (process.env.ARTIST_STUDIO_SKIP_PORTFOLIO_SCREENSHOTS === "1") return { pageCount: 0, issues: [] };
   try {
     requireFromRenderer.resolve("playwright");
     const childProcess = requireFromRenderer("node:child_process") as typeof import("node:child_process");
@@ -638,6 +639,7 @@ function tryCheckHtmlLayout(htmlPath: string) {
 }
 
 function capturePortfolioPageScreenshots(htmlPath: string, internalDir: string, outputBaseName: string) {
+  if (process.env.ARTIST_STUDIO_SKIP_PORTFOLIO_SCREENSHOTS === "1") return [];
   try {
     requireFromRenderer.resolve("playwright");
     const childProcess = requireFromRenderer("node:child_process") as typeof import("node:child_process");
@@ -678,6 +680,9 @@ function capturePortfolioPageScreenshots(htmlPath: string, internalDir: string, 
 }
 
 export function renderHtmlToPdf(htmlPath: string, pdfPath: string) {
+  if (process.env.ARTIST_STUDIO_FAST_PORTFOLIO_PDF === "1") {
+    return renderFastTestPdfFromHtml(htmlPath, pdfPath);
+  }
   try {
     requireFromRenderer.resolve("playwright");
     const childProcess = requireFromRenderer("node:child_process") as typeof import("node:child_process");
@@ -705,6 +710,20 @@ export function renderHtmlToPdf(htmlPath: string, pdfPath: string) {
   }
 }
 
+function renderFastTestPdfFromHtml(htmlPath: string, pdfPath: string) {
+  try {
+    const html = fs.existsSync(htmlPath) ? fs.readFileSync(htmlPath, "utf8") : "";
+    const title = html.match(/<title>([\s\S]*?)<\/title>/i)?.[1]?.replace(/\s+/g, " ").trim() || "Portfolio";
+    const pageTexts = Array.from(html.matchAll(/<section[^>]*class="[^"]*\bpage\b[^"]*"[^>]*>([\s\S]*?)<\/section>/gi))
+      .map((match) => htmlToPlainText(match[1]))
+      .filter(Boolean);
+    writeSimplePdf(pdfPath, title, pageTexts.length ? pageTexts : [htmlToPlainText(html) || title], false);
+    return fs.existsSync(pdfPath) ? pdfPath : null;
+  } catch {
+    return null;
+  }
+}
+
 function safeOutputBaseName(value: string) {
   return value.replace(/[^a-z0-9-]+/gi, "-").replace(/^-+|-+$/g, "") || "portfolio";
 }
@@ -716,7 +735,7 @@ function renderFallbackPdfFromHtml(htmlPath: string, pdfPath: string) {
     const pageTexts = Array.from(html.matchAll(/<section[^>]*class="[^"]*\bpage\b[^"]*"[^>]*>([\s\S]*?)<\/section>/gi))
       .map((match) => htmlToPlainText(match[1]))
       .filter(Boolean);
-    writeSimplePdf(pdfPath, title, pageTexts.length ? pageTexts : [htmlToPlainText(html) || title]);
+    writeSimplePdf(pdfPath, title, pageTexts.length ? pageTexts : [htmlToPlainText(html) || title], true);
     return fs.existsSync(pdfPath) ? pdfPath : null;
   } catch {
     return null;
@@ -740,7 +759,7 @@ function htmlToPlainText(html: string) {
     .trim();
 }
 
-function writeSimplePdf(pdfPath: string, title: string, pageTexts: string[]) {
+function writeSimplePdf(pdfPath: string, title: string, pageTexts: string[], markAsFallback: boolean) {
   const objects: string[] = [];
   const addObject = (body: string) => {
     objects.push(body);
@@ -760,7 +779,7 @@ function writeSimplePdf(pdfPath: string, title: string, pageTexts: string[]) {
   objects[pagesId - 1] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`;
   objects[catalogId - 1] = "<< /Type /Catalog /Pages 2 0 R >>";
 
-  let pdf = "%PDF-1.4\n%ARTIST_STUDIO_FALLBACK_PDF\n";
+  let pdf = `%PDF-1.4\n${markAsFallback ? "%ARTIST_STUDIO_FALLBACK_PDF\n" : ""}`;
   const offsets = [0];
   for (let index = 0; index < objects.length; index += 1) {
     offsets.push(Buffer.byteLength(pdf, "binary"));

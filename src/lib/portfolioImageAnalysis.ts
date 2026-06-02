@@ -19,6 +19,14 @@ export function analyzePortfolioImages(imagePaths: string[]): PortfolioImageAnal
         if (ratio > 1.28) return "landscape";
         return "square";
       };
+      const brightnessLabelFor = (brightness) => brightness < 0.3 ? "dark" : brightness > 0.78 ? "bright" : "balanced";
+      const suitabilityFor = (analysis) => {
+        if (!analysis.width || !analysis.height) return "exclude";
+        if (analysis.tooSmallForFullPage || analysis.fileSizeBytes < 120 * 1024) return "detail_only";
+        if (analysis.orientation === "panorama") return "usable";
+        if (Math.max(analysis.width, analysis.height) >= 2400 && Math.min(analysis.width, analysis.height) >= 1400 && analysis.averageBrightness >= 0.22 && analysis.averageBrightness <= 0.88) return "strong";
+        return "usable";
+      };
       const rolesFor = (analysis) => {
         const lower = analysis.path.toLowerCase();
         const roles = [];
@@ -26,7 +34,8 @@ export function analyzePortfolioImages(imagePaths: string[]): PortfolioImageAnal
         if (/detail|close|crop/.test(lower)) roles.push("detail");
         if (/process|studio|material/.test(lower)) roles.push("process");
         if (/archive|reference|research/.test(lower)) roles.push("archive_reference");
-        if (analysis.tooSmallForFullPage) roles.push("detail", "context");
+        if (analysis.fullPageSuitability === "exclude") roles.push("excluded");
+        else if (analysis.fullPageSuitability === "detail_only") roles.push("detail", "context");
         else if (analysis.orientation === "panorama") roles.push("overview", "installation_view");
         else roles.push("primary", "overview");
         return [...new Set(roles)].slice(0, 4);
@@ -46,8 +55,12 @@ export function analyzePortfolioImages(imagePaths: string[]): PortfolioImageAnal
             const orientation = orientationFor(width, height);
             const fileSizeBytes = fs.statSync(imagePath).size;
             const qualityRisks = [];
-            if (Math.max(width, height) < 1600 || Math.min(width, height) < 900) qualityRisks.push("too small for full-page use");
+            const tooSmallForFullPage = Math.max(width, height) < 1800 || Math.min(width, height) < 1000;
+            if (tooSmallForFullPage) qualityRisks.push("too small for full-page use");
             if (fileSizeBytes < 150 * 1024) qualityRisks.push("small source file");
+            if (averageBrightness < 0.18) qualityRisks.push("very dark image may lose detail in print");
+            if (averageBrightness > 0.92) qualityRisks.push("very bright image may wash out on off-white pages");
+            if (aspectRatio > 3.2 || aspectRatio < 0.42) qualityRisks.push("extreme aspect ratio needs context or spread layout");
             if (/wechat|screenshot|screen/.test(imagePath.toLowerCase())) qualityRisks.push("may be a screenshot or phone transfer");
             const analysis = {
               path: imagePath,
@@ -58,11 +71,15 @@ export function analyzePortfolioImages(imagePaths: string[]): PortfolioImageAnal
               fileSizeBytes,
               format: metadata.format || "",
               dominantColors: ["#" + toHex(dominant.r) + toHex(dominant.g) + toHex(dominant.b)],
+              palette: ["#" + toHex(dominant.r) + toHex(dominant.g) + toHex(dominant.b), "#" + means.map(toHex).join("")],
               averageBrightness,
-              tooSmallForFullPage: Math.max(width, height) < 1600 || Math.min(width, height) < 900,
+              brightnessLabel: brightnessLabelFor(averageBrightness),
+              tooSmallForFullPage,
+              fullPageSuitability: "usable",
               qualityRisks,
               recommendedRoles: []
             };
+            analysis.fullPageSuitability = suitabilityFor(analysis);
             analysis.recommendedRoles = rolesFor(analysis);
             output.push(analysis);
           } catch (error) {
@@ -75,8 +92,11 @@ export function analyzePortfolioImages(imagePaths: string[]): PortfolioImageAnal
               fileSizeBytes: 0,
               format: "",
               dominantColors: [],
+              palette: [],
               averageBrightness: 0,
+              brightnessLabel: "dark",
               tooSmallForFullPage: true,
+              fullPageSuitability: "exclude",
               qualityRisks: ["sharp analysis failed: " + (error && error.message ? error.message : "unknown error")],
               recommendedRoles: ["excluded"]
             });
@@ -109,8 +129,11 @@ function fallbackImageAnalysis(imagePath: string): PortfolioImageAnalysis {
     fileSizeBytes: fs.existsSync(imagePath) ? fs.statSync(imagePath).size : 0,
     format: path.extname(imagePath).replace(/^\./, ""),
     dominantColors: [],
+    palette: [],
     averageBrightness: 0.5,
+    brightnessLabel: "balanced",
     tooSmallForFullPage: true,
+    fullPageSuitability: "detail_only",
     qualityRisks: ["image analysis fallback used"],
     recommendedRoles
   };

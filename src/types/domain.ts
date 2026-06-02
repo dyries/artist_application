@@ -115,8 +115,11 @@ export type PortfolioImageAnalysis = {
   fileSizeBytes: number;
   format: string;
   dominantColors: string[];
+  palette?: string[];
   averageBrightness: number;
+  brightnessLabel?: "dark" | "balanced" | "bright";
   tooSmallForFullPage: boolean;
+  fullPageSuitability?: "strong" | "usable" | "detail_only" | "exclude";
   qualityRisks: string[];
   recommendedRoles: PortfolioImageRole[];
 };

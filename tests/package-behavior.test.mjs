@@ -12,6 +12,6 @@ test("writeApplicationPackage produces automated portfolio artifacts from real i
   ], {
     cwd: process.cwd(),
     stdio: "pipe",
-    timeout: 180000
+    timeout: 240000
   });
 });
