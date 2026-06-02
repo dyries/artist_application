@@ -92,9 +92,13 @@ export async function runProjectAutomation() {
       portfolioPlan: app.portfolioPlan,
       portfolioSourceAudit: app.portfolioSourceAudit,
       selectedWorksStructured: app.selectedWorksStructured,
+      selectedImages: app.selectedImages,
+      excludedImages: app.excludedImages,
       excludedWorksOrImages: app.excludedWorksOrImages,
       missingMetadata: app.missingMetadata,
       portfolioQualityRisks: app.portfolioQualityRisks,
+      portfolioVariants: app.portfolioVariants,
+      autoRepairIntent: app.autoRepairIntent,
       portfolioWebResearchReferences: app.portfolioWebResearchReferences,
       draftZh: app.draftZh ?? "",
       draftEn: app.draftEn ?? "",
@@ -124,7 +128,7 @@ export async function runProjectAutomation() {
       packagePath,
       submissionLog: written.status === "package_ready_for_final_review"
         ? "Package generated for final Chinese user review. Explicit user approval is still required before submission."
-        : "Package generated but blocked by internal quality checks. Review internal-notes/internal-issues.md before final approval."
+        : "Package generated but blocked by key issues the automation could not resolve. User confirmation is required only for those blocking issues."
     }) : null;
     recordPackageManifest({
       applicationId,
@@ -157,9 +161,9 @@ export async function runProjectAutomation() {
 
 function buildAutomationPrompt(data: ReturnType<typeof readArtistData>, runMode: AutomationRunMode) {
   return JSON.stringify({
-    task: "Run professional artist application automation. Verify and rank opportunities first. Prepare application packages only for opportunities whose current status is selected_by_user, preparing, package_ready_for_final_review, or approved_for_submission.",
+    task: "Run professional artist application automation. Act as a professional artist portfolio editor, not a suggestion generator. Verify and rank opportunities first. Prepare application packages only for opportunities whose current status is selected_by_user, preparing, package_ready_for_final_review, or approved_for_submission.",
     runMode,
-    userReviewModel: "The user reviews only two nodes: A) which opportunities to apply for, B) whether the final submission package may be submitted. Do not ask for piecemeal confirmation; put uncertainties in internal notes/issues unless they involve final submission, payment, login, captcha, legal declarations, privacy risk, unclear eligibility, unclear fees, or missing critical required material.",
+    userReviewModel: "The user reviews only two nodes: A) which opportunities to apply for, B) whether the final submission package may be submitted. Do not ask for image choice, page-by-page portfolio review, caption edits, or layout judgment. Ordinary portfolio quality problems are repaired automatically by the system. Only final submission, payment, login, captcha, legal declarations, privacy risk, unclear eligibility, unclear fees, or missing critical required material require user intervention.",
     fileBoundaryModel: {
       internalNotes: "matching logic, risk, missing information, work-selection rationale, AI judgment, open call analysis",
       userReview: "Chinese-first opportunity analysis, recommendations, risks, material summary, changes made, final checklist",
@@ -197,7 +201,8 @@ function buildAutomationPrompt(data: ReturnType<typeof readArtistData>, runMode:
         externalApplicationAnswersZh: "formal Chinese answers only if required; no internal words or placeholders",
         emailDraftEn: "formal English email body if needed",
         emailDraftZh: "formal Chinese email body if needed",
-        portfolioText: "restrained portfolio text/captions; must be based on existing portfolio sources and recorded research",
+        portfolioText: "restrained portfolio text/captions; must be based on existing portfolio sources and recorded research; no mock/draft/placeholder/unknown/N/A/TBD language",
+        portfolioConstraints: "default targetPages 20, minimumPages 16, maximumPages 24 unless the opportunity explicitly overrides page count, file size, single/combined PDF, or image upload constraints",
         portfolioSourceAudit: {
           existingPortfolioSources: ["existing user portfolio files inspected before generation"],
           availableWorks: ["works from data.works with title/year/medium/dimensions/imagePath"],
@@ -212,23 +217,49 @@ function buildAutomationPrompt(data: ReturnType<typeof readArtistData>, runMode:
           portfolioTitle: "Selected Works",
           year: "current portfolio year",
           language: "en | zh",
+          layoutResearchUsed: {
+            referenceCount: "number of live portfolio layout references recorded before planning",
+            researchFile: "internal-notes/portfolio-layout-research.md",
+            derivedPrinciples: ["layout principles derived from research"],
+            appliedPrinciples: ["how principles changed this PortfolioPlan"]
+          },
+          curatorialSummary: {
+            projectGroupCount: "number",
+            dominantProjectGroup: "project group with highest page share",
+            dominantProjectPageRatio: "0-1",
+            layoutStrategyCounts: "record of layout strategy counts",
+            workTypeCounts: "record of painting / installation / research / documentation / series counts",
+            passedDiversityGate: "boolean"
+          },
+          portfolioConstraints: {
+            targetPages: "20 by default unless opportunity overrides",
+            minimumPages: "16 by default unless opportunity overrides",
+            maximumPages: "24 by default unless opportunity overrides",
+            source: "opportunity | default",
+            reason: "why these constraints apply"
+          },
           maxPages: "number if constrained by opportunity",
           targetFileSizeMb: "number if constrained by opportunity",
           pages: [
-            { type: "cover", title: "Artist Name", subtitle: "Selected Works", year: "2026", contact: "email / website only if available" },
-            { type: "short_statement", text: "120-180 concrete words only when appropriate" },
-            { type: "work_full_page", workId: "id", title: "Title", year: "Year", medium: "Medium", dimensions: "Dimensions", imageRole: "primary", imagePath: "absolute path", caption: "Title, year, medium, dimensions." },
-            { type: "work_with_details", workId: "id", title: "Title", layout: "overview_plus_details", images: [{ role: "overview", path: "absolute path" }, { role: "detail", path: "absolute path" }], caption: "Short formal caption." },
-            { type: "installation_spread", workId: "id", title: "Title", images: [{ role: "installation", path: "absolute path" }, { role: "detail", path: "absolute path" }], caption: "Short formal caption." },
-            { type: "series_grid", workId: "id", title: "Series title", images: [{ role: "overview", path: "absolute path" }], caption: "Short formal caption." }
+            { type: "cover", title: "Artist Name", subtitle: "Selected Works", year: "2026", contact: "email / website only if available", layoutStrategy: "cover", pageRole: "cover", layoutReferenceReason: "research-informed restrained cover" },
+            { type: "short_statement", text: "120-180 concrete words only when appropriate", layoutStrategy: "statement", pageRole: "statement" },
+            { type: "project_opener", title: "Project / Series Title", projectGroup: "Project / Series Title", layoutStrategy: "project_opener", pageRole: "project_opener", curatorialReason: "why this section opens here" },
+            { type: "series_overview_grid", workId: "id", title: "Series title", projectGroup: "Project / Series Title", layoutStrategy: "series_overview_grid", pageRole: "overview", images: [{ role: "overview", path: "absolute path" }], caption: "Short formal caption." },
+            { type: "single_work_full_page", workId: "id", title: "Title", year: "Year", medium: "Medium", dimensions: "Dimensions", projectGroup: "Project / Series Title", layoutStrategy: "single_work_full_page", pageRole: "primary_work", imageRole: "primary", imagePath: "absolute path", caption: "Title, year, medium, dimensions." },
+            { type: "installation_with_details", workId: "id", title: "Title", projectGroup: "Project / Series Title", layoutStrategy: "installation_with_details", pageRole: "installation", images: [{ role: "installation_view", path: "absolute path" }, { role: "detail", path: "absolute path" }], caption: "Short formal caption." },
+            { type: "text_image_context", workId: "id", title: "Title", projectGroup: "Project / Series Title", layoutStrategy: "text_image_context", pageRole: "context", images: [{ role: "context", path: "absolute path" }], text: "brief project context", caption: "Short formal caption." }
           ],
           excludedImages: [{ path: "absolute path", reason: "low quality / process only / storage photo / metadata missing" }],
           qualityRisks: ["risks that should block or warn internally"]
         },
         selectedWorksStructured: [{ workId: "id", title: "Title", imagePath: "absolute path", role: "primary", reason: "why selected" }],
+        selectedImages: [{ workId: "id", title: "Title", path: "absolute path", role: "primary | overview | detail | installation | context", imageQualityScore: "0-100", reason: "why selected and how it should be used" }],
+        excludedImages: [{ workId: "id", title: "Title", path: "absolute path", role: "weak_candidate | excluded", reason: "weak image / duplicate / process-only / storage photo / unsuitable for external submission" }],
         excludedWorksOrImages: [{ id: "id", path: "absolute path", reason: "why excluded" }],
         missingMetadata: ["formal caption fields missing"],
         portfolioQualityRisks: ["image quality, metadata, page/file constraints, or source confidence risks"],
+        portfolioVariants: ["default portfolio.pdf/html; short PDFs, images-for-upload, or combined PDF when opportunity requires"],
+        autoRepairIntent: "The AI must expect the system to auto-repair ordinary page count, caption, image size, grid density, forbidden term, and file size problems for up to 3 rounds before blocking.",
         portfolioWebResearchReferences: ["URLs or source names used for portfolio structure/design conventions"],
         draftZh: "legacy Chinese review fallback",
         draftEn: "legacy English formal fallback",
@@ -241,6 +272,18 @@ function buildAutomationPrompt(data: ReturnType<typeof readArtistData>, runMode:
         cvText: "optional CV text"
       }]
     },
+    portfolioAutomationRules: [
+      "Before creating any portfolioPlan, perform online portfolio layout research. Study real artist portfolio PDFs, residency application portfolios, MFA fine art portfolios, gallery PDFs, and installation documentation layouts. Record references and derived layout principles in internal-notes. Do not copy any specific design. Use the research only to improve structure, rhythm, image/text ratio, caption placement, project grouping, and documentation strategy. The final PortfolioPlan must show how the research influenced the layout choices.",
+      "When no special portfolio page limit is stated, plan a mature 20-page-ish portfolio: cover, 120-180 word statement, strongest project pages, main selected works, secondary/context pages, selected works/contact page.",
+      "Do not interpret 20 pages as 20 similar images. Default Selected Works must cover multiple project groups when material exists.",
+      "Use at least three project groups by default, and do not let any one project group exceed 35% of pages unless the opportunity explicitly requests that series.",
+      "Use varied layout strategies: project_opener, series_overview_grid, single_work_full_page, single_work_with_detail, two_image_spread, installation_overview, installation_with_details, image_research_grid, text_image_context, selected_works_list, contact_page.",
+      "More than four consecutive single_work_full_page pages is a failure. A cover + statement + image/image/image template is a failure.",
+      "If the title is Selected Works, it must be cross-project selected works. If only one series exists, title the portfolio with that series and record the limitation internally.",
+      "Automatically choose images, order works, write captions, write the statement, assign page layouts, and avoid asking the user to judge portfolio pages.",
+      "Final portfolio should look like a mature artist-prepared PDF, not a test sheet, mock review committee packet, or commercial brochure.",
+      "External portfolio files must not contain mock, draft, placeholder, unknown, N/A, TBD, generated-by-AI, or dimensions recorded in source material."
+    ],
     rules: buildPromptRules(data.profile),
     packagePreparationGate: "Do not create applicationPackages for new/recommended/confirmed opportunities. First produce verifiedOpportunities with recommended status and Chinese rationale; wait for selected_by_user status before preparing packages.",
     portfolioReferenceResearchUsedInThisImplementation: [

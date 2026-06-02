@@ -12,6 +12,9 @@ test("portfolio generation uses source audit and structured PortfolioPlan", () =
   for (const snippet of [
     "portfolio-source-audit.json",
     "portfolio-plan.json",
+    "portfolio-auto-repair-log.json",
+    "buildAutomaticPortfolioPlan",
+    "generatePortfolioWithAutoRepair",
     "buildPortfolioSourceAudit",
     "copyPortfolioPlanImages",
     "PortfolioPlan"
@@ -48,15 +51,137 @@ test("portfolio image handling is fail-closed and visually gated", () => {
   for (const snippet of [
     "forbiddenExternalPattern",
     "targetFileSizeMb",
-    "maxPages",
-    "Fewer than three portfolio design/application references",
-    "caption font is below readable size"
+    "autoFixableIssues",
+    "blockingIssues",
+    "warnings",
+    "caption font is below readable size",
+    "small_full_page_image"
   ]) {
     assert.ok(renderer.includes(snippet), `visual gate missing ${snippet}`);
   }
 
   assert.ok(quality.includes("PortfolioPlan contains forbidden external-facing language"));
+  assert.ok(quality.includes("warnings"));
+  assert.ok(quality.includes("\"images\" in page"));
   assert.ok(quality.includes("renderer must not depend on selectedWorks free text"));
+});
+
+test("portfolio automation defaults to 20 pages and repairs ordinary issues", () => {
+  const packageWriter = readText("src/lib/package.ts");
+  const renderer = readText("src/lib/portfolioRenderer.ts");
+  const projectAutomation = readText("src/lib/projectAutomation.ts");
+  const schemas = readText("src/lib/schemas.ts");
+
+  for (const snippet of [
+    "targetPages: 20",
+    "minimumPages: 16",
+    "maximumPages: 24",
+    "inferPortfolioConstraints",
+    "repairPortfolioPlan",
+    "round <= 3",
+    "autoFixableIssuesResolved",
+    "selectedImages",
+    "excludedImages",
+    "stablePortfolioImageName",
+    "portfolio-image-copy-map.json",
+    "materializePortfolioVariants",
+    "portfolio-short-10p",
+    "images-for-upload",
+    "combined-application-package.pdf",
+    "inferExistingPortfolioTitleOrder",
+    "fallbackImageWorks",
+    "extractPortfolioBody",
+    "fileQualityBlockingIssues",
+    "external_file_quality_warning"
+  ]) {
+    assert.ok(packageWriter.includes(snippet), `package automation missing ${snippet}`);
+  }
+
+  assert.ok(!packageWriter.includes("availableWorks.filter((work) => work.imagePath).slice(0, 8)"));
+  assert.ok(packageWriter.includes("Generated combined application PDF from external submission text files and portfolio pages."));
+  assert.ok(packageWriter.includes("longSide >= 2400"));
+  assert.ok(packageWriter.includes("extractSelectedPortfolioImages"));
+  assert.ok(packageWriter.includes("materialsActuallyUsed"));
+  assert.ok(renderer.includes("page_count_too_low"));
+  assert.ok(renderer.includes("page_count_too_high"));
+  assert.ok(renderer.includes("caption_too_long"));
+  assert.ok(renderer.includes("statement_too_generic"));
+  assert.ok(renderer.includes("series_grid_too_dense"));
+  assert.ok(renderer.includes("duplicate_images"));
+  assert.ok(renderer.includes("no_usable_images"));
+  assert.ok(renderer.includes("renderFallbackPdfFromHtml"));
+  assert.ok(renderer.includes("writeSimplePdf"));
+  assert.ok(projectAutomation.includes("professional artist portfolio editor"));
+  assert.ok(projectAutomation.includes("portfolioConstraints"));
+  assert.ok(projectAutomation.includes("autoRepairIntent"));
+  assert.ok(schemas.includes("portfolioVariants"));
+});
+
+test("portfolio generation requires layout research and project diversity", () => {
+  const packageWriter = readText("src/lib/package.ts");
+  const renderer = readText("src/lib/portfolioRenderer.ts");
+  const schemas = readText("src/lib/schemas.ts");
+  const projectAutomation = readText("src/lib/projectAutomation.ts");
+
+  for (const snippet of [
+    "portfolio-layout-research.md",
+    "portfolio-layout-research.json",
+    "performPortfolioLayoutResearch",
+    "Live web research unavailable in this environment.",
+    "no URLs were fabricated",
+    "layoutResearchUsed",
+    "appliedPrinciples"
+  ]) {
+    assert.ok(packageWriter.includes(snippet) || schemas.includes(snippet) || projectAutomation.includes(snippet), `layout research missing ${snippet}`);
+  }
+
+  for (const snippet of [
+    "portfolioCuratorialGate",
+    "projectGroupCount",
+    "dominantProjectPageRatio",
+    "dominant_project_over_35_percent",
+    "project_diversity_too_low",
+    "single_project_selected_works",
+    "curatorial_gate_failed",
+    "passedDiversityGate"
+  ]) {
+    assert.ok(packageWriter.includes(snippet) || renderer.includes(snippet) || schemas.includes(snippet), `curatorial gate missing ${snippet}`);
+  }
+
+  for (const snippet of [
+    "project_opener",
+    "series_overview_grid",
+    "single_work_full_page",
+    "two_image_spread",
+    "installation_with_details",
+    "image_research_grid",
+    "text_image_context",
+    "selected_works_list",
+    "contact_page"
+  ]) {
+    assert.ok(packageWriter.includes(snippet) && renderer.includes(snippet) && schemas.includes(snippet), `layout strategy missing ${snippet}`);
+  }
+
+  assert.ok(projectAutomation.includes("Before creating any portfolioPlan, perform online portfolio layout research"));
+  assert.ok(projectAutomation.includes("More than four consecutive single_work_full_page pages is a failure"));
+  assert.ok(projectAutomation.includes("35%"));
+});
+
+test("machine rules describe auto repair instead of blocking ordinary portfolio problems", () => {
+  const automationRules = readText("src/lib/automationRules.ts");
+
+  assert.ok(automationRules.includes("targetPages 20"));
+  assert.ok(automationRules.includes("auto-repair loop for up to three rounds"));
+  assert.ok(automationRules.includes("Only true blocking issues"));
+  assert.ok(!automationRules.includes("image failure must quality_block"));
+});
+
+test("user review does not send ordinary portfolio issues back to the artist", () => {
+  const packageWriter = readText("src/lib/package.ts");
+
+  assert.ok(packageWriter.includes("系统已自动完成作品集排版与质量检查"));
+  assert.ok(packageWriter.includes("系统无法自动解决以下关键问题，需要用户确认"));
+  assert.ok(!packageWriter.includes("未通过，需先处理 internal-notes/internal-issues.md"));
 });
 
 test("portfolio rules document real submission portfolio boundaries", () => {

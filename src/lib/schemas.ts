@@ -18,35 +18,89 @@ const opportunityStatusSchema = z.enum([
   "rejected"
 ]);
 
-const portfolioImageRoleSchema = z.enum(["primary", "overview", "detail", "installation", "process", "context", "reverse", "reference"]);
+const portfolioImageRoleSchema = z.enum([
+  "primary",
+  "overview",
+  "detail",
+  "installation",
+  "installation_view",
+  "process",
+  "context",
+  "archive_reference",
+  "reverse",
+  "reference",
+  "weak_candidate",
+  "excluded"
+]);
+
+const portfolioConstraintsSchema = z.object({
+  targetPages: z.number().int().positive().default(20),
+  minimumPages: z.number().int().positive().default(16),
+  maximumPages: z.number().int().positive().default(24),
+  source: z.enum(["opportunity", "default"]).default("default"),
+  reason: z.string().default("No explicit opportunity page limit; default to a formal portfolio around 20 pages."),
+  maxPages: z.number().int().positive().optional(),
+  targetFileSizeMb: z.number().positive().optional(),
+  imageCountRange: z.object({
+    minimum: z.number().int().positive().optional(),
+    maximum: z.number().int().positive().optional()
+  }).optional(),
+  requiresSinglePdf: z.boolean().optional(),
+  requiresCombinedPdf: z.boolean().optional()
+}).passthrough();
 
 const portfolioPlanImageSchema = z.object({
   role: portfolioImageRoleSchema.default("primary"),
   path: z.string().default(""),
-  caption: z.string().optional()
+  caption: z.string().optional(),
+  imageQualityScore: z.number().min(0).max(100).optional(),
+  qualityRisks: z.array(z.string()).optional()
 }).strict();
+
+const portfolioPageMetadataSchema = z.object({
+  projectGroup: z.string().optional(),
+  projectTitle: z.string().optional(),
+  layoutStrategy: z.string().optional(),
+  pageRole: z.enum(["cover", "statement", "project_opener", "overview", "primary_work", "detail", "installation", "context", "list", "contact"]).optional(),
+  curatorialReason: z.string().optional(),
+  layoutReferenceReason: z.string().optional()
+});
+
+const withPortfolioPageMetadata = <T extends z.ZodRawShape>(shape: T) => z.object(shape).merge(portfolioPageMetadataSchema).strict();
 
 export const portfolioPlanSchema = z.object({
   artistName: z.string().default(""),
   portfolioTitle: z.string().default("Selected Works"),
   year: z.string().default(""),
   language: z.string().default("en"),
+  portfolioConstraints: portfolioConstraintsSchema.default({
+    targetPages: 20,
+    minimumPages: 16,
+    maximumPages: 24,
+    source: "default",
+    reason: "No explicit opportunity page limit; default to a formal portfolio around 20 pages."
+  }),
   maxPages: z.number().int().positive().optional(),
   targetFileSizeMb: z.number().positive().optional(),
   pages: z.array(z.discriminatedUnion("type", [
-    z.object({
+    withPortfolioPageMetadata({
       type: z.literal("cover"),
       title: z.string().default(""),
       subtitle: z.string().optional(),
       year: z.string().optional(),
       contact: z.string().optional()
-    }).strict(),
-    z.object({
+    }),
+    withPortfolioPageMetadata({
       type: z.literal("short_statement"),
       text: z.string().default("")
-    }).strict(),
-    z.object({
-      type: z.literal("work_full_page"),
+    }),
+    withPortfolioPageMetadata({
+      type: z.literal("project_opener"),
+      title: z.string().default(""),
+      text: z.string().optional()
+    }),
+    withPortfolioPageMetadata({
+      type: z.enum(["work_full_page", "single_work_full_page"]),
       workId: z.string().optional(),
       title: z.string().default(""),
       year: z.string().optional(),
@@ -56,31 +110,57 @@ export const portfolioPlanSchema = z.object({
       imagePath: z.string().default(""),
       caption: z.string().optional(),
       note: z.string().optional()
-    }).strict(),
-    z.object({
-      type: z.enum(["work_with_details", "installation_spread", "series_grid"]),
+    }),
+    withPortfolioPageMetadata({
+      type: z.enum(["work_with_details", "single_work_with_detail", "installation_spread", "installation_overview", "installation_with_details", "series_grid", "series_overview_grid", "image_research_grid", "image_with_caption_below", "two_image_detail_spread", "two_image_spread", "series_grid_large", "text_left_image_right", "text_image_context"]),
       workId: z.string().optional(),
       title: z.string().default(""),
       year: z.string().optional(),
       medium: z.string().optional(),
       dimensions: z.string().optional(),
-      layout: z.enum(["overview_plus_details", "grid", "spread"]).optional(),
+      layout: z.enum(["overview_plus_details", "grid", "spread", "single", "detail_spread", "large_grid", "text_image"]).optional(),
       images: z.array(portfolioPlanImageSchema).default([]),
+      text: z.string().optional(),
       caption: z.string().optional(),
       note: z.string().optional()
-    }).strict(),
-    z.object({
-      type: z.enum(["contact", "selected_works_list"]),
+    }),
+    withPortfolioPageMetadata({
+      type: z.enum(["contact", "contact_page", "selected_works_list"]),
       title: z.string().optional(),
       text: z.string().optional(),
       works: z.array(z.string()).optional()
-    }).strict()
+    })
   ])).default([]),
   excludedImages: z.array(z.object({
     path: z.string().default(""),
     reason: z.string().default("")
   }).strict()).default([]),
   qualityRisks: z.array(z.string()).default([])
+  ,
+  curatorialSummary: z.object({
+    projectGroupCount: z.number().int().nonnegative().default(0),
+    dominantProjectGroup: z.string().optional(),
+    dominantProjectPageRatio: z.number().optional(),
+    layoutStrategyCounts: z.record(z.string(), z.number()).default({}),
+    workTypeCounts: z.record(z.string(), z.number()).default({}),
+    passedDiversityGate: z.boolean().default(false)
+  }).default({
+    projectGroupCount: 0,
+    layoutStrategyCounts: {},
+    workTypeCounts: {},
+    passedDiversityGate: false
+  }),
+  layoutResearchUsed: z.object({
+    referenceCount: z.number().int().nonnegative().default(0),
+    researchFile: z.string().default("internal-notes/portfolio-layout-research.md"),
+    derivedPrinciples: z.array(z.string()).default([]),
+    appliedPrinciples: z.array(z.string()).default([])
+  }).default({
+    referenceCount: 0,
+    researchFile: "internal-notes/portfolio-layout-research.md",
+    derivedPrinciples: [],
+    appliedPrinciples: []
+  })
 }).strict();
 
 const portfolioSourceAuditSchema = z.object({
@@ -98,6 +178,8 @@ const portfolioSourceAuditSchema = z.object({
   lowConfidenceFacts: z.array(z.string()).default([]),
   opportunitySpecificConstraints: z.object({
     maxPages: z.number().int().positive().optional(),
+    minPages: z.number().int().positive().optional(),
+    targetPages: z.number().int().positive().optional(),
     targetFileSizeMb: z.number().positive().optional(),
     language: z.string().optional(),
     requiresCv: z.boolean().optional(),
@@ -106,6 +188,7 @@ const portfolioSourceAuditSchema = z.object({
     requiresSinglePdf: z.boolean().optional(),
     rawMaterialsText: z.string().optional()
   }).passthrough().default({}),
+  portfolioConstraints: portfolioConstraintsSchema.optional(),
   materialsActuallyUsed: z.array(z.string()).default([])
 }).strict();
 
@@ -229,6 +312,21 @@ export const aiAutomationResponseSchema = z.object({
       role: portfolioImageRoleSchema.optional(),
       reason: z.string().optional()
     }).strict()).default([]),
+    selectedImages: z.array(z.object({
+      workId: z.union([z.number(), z.string()]).optional(),
+      title: z.string().optional(),
+      path: z.string().default(""),
+      role: portfolioImageRoleSchema.default("primary"),
+      imageQualityScore: z.number().min(0).max(100).optional(),
+      reason: z.string().optional()
+    }).strict()).default([]),
+    excludedImages: z.array(z.object({
+      workId: z.union([z.number(), z.string()]).optional(),
+      title: z.string().optional(),
+      path: z.string().default(""),
+      role: portfolioImageRoleSchema.optional(),
+      reason: z.string().default("")
+    }).strict()).default([]),
     excludedWorksOrImages: z.array(z.object({
       id: z.union([z.number(), z.string()]).optional(),
       path: z.string().optional(),
@@ -236,6 +334,17 @@ export const aiAutomationResponseSchema = z.object({
     }).strict()).default([]),
     missingMetadata: z.array(z.string()).default([]),
     portfolioQualityRisks: z.array(z.string()).default([]),
+    portfolioVariants: z.array(z.object({
+      type: z.enum(["default_pdf", "default_html", "short_pdf", "images_for_upload", "combined_pdf"]),
+      path: z.string().default(""),
+      status: z.enum(["generated", "planned", "blocked"]).default("planned"),
+      reason: z.string().optional()
+    }).strict()).default([]),
+    autoRepairIntent: z.object({
+      maxRounds: z.number().int().positive().default(3),
+      ordinaryIssuesAreAutoFixable: z.boolean().default(true),
+      blockingOnlyRequiresUser: z.boolean().default(true)
+    }).passthrough().optional(),
     portfolioWebResearchReferences: z.array(z.string()).default([]),
     draftZh: z.string().optional(),
     draftEn: z.string().optional(),
