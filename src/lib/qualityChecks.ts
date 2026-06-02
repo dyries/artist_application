@@ -1,4 +1,4 @@
-import type { PortfolioPlan, PortfolioSourceAudit, SourceMaterial } from "@/types/domain";
+import type { PortfolioPlan, PortfolioSourceAudit, PortfolioVisualGateResult, SourceMaterial } from "@/types/domain";
 import { checkPortfolioOutput, checkPortfolioPreparation } from "./portfolioQualityCheck";
 import { containsChinese, concreteWritingReminder, findAiCliches } from "./languageReviewCheck";
 import { assertExternalTextIsClean, findBannedExternalTerms } from "./outputSanitizer";
@@ -12,6 +12,7 @@ export type ApplicationQualityInput = {
   portfolioText: string;
   portfolioPlan?: PortfolioPlan;
   portfolioSourceAudit?: PortfolioSourceAudit;
+  portfolioVisualReport?: PortfolioVisualGateResult;
   portfolioWebResearchReferences: string[];
   materialSources: Pick<SourceMaterial, "kind" | "title" | "fileName" | "filePath" | "content" | "analysis">[];
   runMode: "real" | "test" | "mock";
@@ -53,9 +54,24 @@ export function runApplicationQualityChecks(input: ApplicationQualityInput) {
   });
   if (!portfolioOutput.ok) internalIssues.push(...portfolioOutput.issues);
 
+  if (!input.portfolioVisualReport) {
+    internalIssues.push("Portfolio final visual/aesthetic gate report is missing from package readiness checks.");
+  } else if (!input.portfolioVisualReport.passed) {
+    internalIssues.push([
+      "Portfolio final visual/aesthetic gate did not pass.",
+      `pageCount=${input.portfolioVisualReport.pageCount}`,
+      `aestheticScore=${input.portfolioVisualReport.aestheticScore}`,
+      `professionalPdfScore=${input.portfolioVisualReport.professionalPdfScore}`,
+      `blocking=${input.portfolioVisualReport.blockingIssues.map((issue) => issue.code).join(",") || "none"}`,
+      `autoFixable=${input.portfolioVisualReport.autoFixableIssues.map((issue) => issue.code).join(",") || "none"}`
+    ].join(" "));
+  }
+  const warnings = [...portfolioPrep.warnings, ...portfolioOutput.warnings];
+
   return {
     passed: internalIssues.length === 0,
     internalIssues,
+    warnings,
     portfolioSourcesReferenced: portfolioPrep.existingPortfolioSources,
     runMode: input.runMode
   };

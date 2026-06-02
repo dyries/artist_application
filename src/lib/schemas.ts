@@ -46,8 +46,44 @@ const portfolioConstraintsSchema = z.object({
     maximum: z.number().int().positive().optional()
   }).optional(),
   requiresSinglePdf: z.boolean().optional(),
-  requiresCombinedPdf: z.boolean().optional()
+  requiresCombinedPdf: z.boolean().optional(),
+  requiresImageUploadOnly: z.boolean().optional()
 }).passthrough();
+
+const portfolioThemeNameSchema = z.enum([
+  "quiet_white",
+  "warm_archive",
+  "soft_gray_gallery",
+  "dark_installation",
+  "image_research_bluegray",
+  "painting_color_field"
+]);
+
+const portfolioThemeSchema = z.object({
+  name: portfolioThemeNameSchema,
+  background: z.string(),
+  text: z.string(),
+  secondaryText: z.string(),
+  accent: z.string(),
+  captionBackground: z.string().optional(),
+  imageFrame: z.enum(["none", "hairline", "soft_shadow", "inset_panel"]).optional()
+}).strict();
+
+const portfolioPageDesignSchema = z.object({
+  themeName: portfolioThemeNameSchema,
+  backgroundMode: z.enum(["plain", "accent_panel", "split_field", "image_bleed", "soft_block"]),
+  emphasis: z.enum(["image", "text", "balanced", "section"]),
+  pageNumber: z.boolean().optional()
+}).strict();
+
+const portfolioDesignSystemSchema = z.object({
+  themeName: portfolioThemeNameSchema,
+  theme: portfolioThemeSchema,
+  headingScale: z.enum(["quiet", "sectional", "large_cover"]),
+  pageNumberStyle: z.enum(["bottom_right", "outer_margin", "none"]),
+  marginSystem: z.enum(["gallery", "archive", "installation"]),
+  sectionDividerStyle: z.enum(["rule", "accent_block", "none"]).optional()
+}).strict();
 
 const portfolioPlanImageSchema = z.object({
   role: portfolioImageRoleSchema.default("primary"),
@@ -57,11 +93,27 @@ const portfolioPlanImageSchema = z.object({
   qualityRisks: z.array(z.string()).optional()
 }).strict();
 
+const portfolioImageAnalysisSchema = z.object({
+  path: z.string(),
+  width: z.number().int().nonnegative(),
+  height: z.number().int().nonnegative(),
+  aspectRatio: z.number().nonnegative(),
+  orientation: z.enum(["portrait", "landscape", "square", "panorama"]),
+  fileSizeBytes: z.number().int().nonnegative(),
+  format: z.string(),
+  dominantColors: z.array(z.string()).default([]),
+  averageBrightness: z.number().min(0).max(1),
+  tooSmallForFullPage: z.boolean(),
+  qualityRisks: z.array(z.string()).default([]),
+  recommendedRoles: z.array(portfolioImageRoleSchema).default([])
+}).strict();
+
 const portfolioPageMetadataSchema = z.object({
   projectGroup: z.string().optional(),
   projectTitle: z.string().optional(),
   layoutStrategy: z.string().optional(),
   pageRole: z.enum(["cover", "statement", "project_opener", "overview", "primary_work", "detail", "installation", "context", "list", "contact"]).optional(),
+  design: portfolioPageDesignSchema.optional(),
   curatorialReason: z.string().optional(),
   layoutReferenceReason: z.string().optional()
 });
@@ -150,6 +202,7 @@ export const portfolioPlanSchema = z.object({
     workTypeCounts: {},
     passedDiversityGate: false
   }),
+  designSystem: portfolioDesignSystemSchema.optional(),
   layoutResearchUsed: z.object({
     referenceCount: z.number().int().nonnegative().default(0),
     researchFile: z.string().default("internal-notes/portfolio-layout-research.md"),
@@ -189,7 +242,8 @@ const portfolioSourceAuditSchema = z.object({
     rawMaterialsText: z.string().optional()
   }).passthrough().default({}),
   portfolioConstraints: portfolioConstraintsSchema.optional(),
-  materialsActuallyUsed: z.array(z.string()).default([])
+  materialsActuallyUsed: z.array(z.string()).default([]),
+  imageAnalyses: z.array(portfolioImageAnalysisSchema).optional()
 }).strict();
 
 export const artistPayloadSchema = z.object({

@@ -69,8 +69,10 @@ test("portfolio image handling is fail-closed and visually gated", () => {
 test("portfolio automation defaults to 20 pages and repairs ordinary issues", () => {
   const packageWriter = readText("src/lib/package.ts");
   const renderer = readText("src/lib/portfolioRenderer.ts");
+  const imageAnalysis = readText("src/lib/portfolioImageAnalysis.ts");
   const projectAutomation = readText("src/lib/projectAutomation.ts");
   const schemas = readText("src/lib/schemas.ts");
+  const qualityChecks = readText("src/lib/qualityChecks.ts");
 
   for (const snippet of [
     "targetPages: 20",
@@ -87,6 +89,8 @@ test("portfolio automation defaults to 20 pages and repairs ordinary issues", ()
     "materializePortfolioVariants",
     "portfolio-short-10p",
     "images-for-upload",
+    "requiresImageUploadOnly",
+    "individual image upload rather than a formal portfolio PDF",
     "combined-application-package.pdf",
     "inferExistingPortfolioTitleOrder",
     "fallbackImageWorks",
@@ -103,6 +107,16 @@ test("portfolio automation defaults to 20 pages and repairs ordinary issues", ()
   assert.ok(packageWriter.includes("extractSelectedPortfolioImages"));
   assert.ok(packageWriter.includes("materialsActuallyUsed"));
   assert.ok(renderer.includes("page_count_too_low"));
+  assert.ok(renderer.includes("aestheticScore"));
+  assert.ok(renderer.includes("professionalPdfScore"));
+  assert.ok(renderer.includes("pageScreenshots"));
+  assert.ok(renderer.includes("portfolio-page-screenshots"));
+  assert.ok(renderer.includes("layoutStrategyCounts"));
+  assert.ok(renderer.includes("repeatedLayoutRuns"));
+  assert.ok(renderer.includes("fallback_pdf_not_professional"));
+  assert.ok(imageAnalysis.includes("sharp"));
+  assert.ok(imageAnalysis.includes("recommendedRoles"));
+  assert.ok(packageWriter.includes("imageAnalyses"));
   assert.ok(renderer.includes("page_count_too_high"));
   assert.ok(renderer.includes("caption_too_long"));
   assert.ok(renderer.includes("statement_too_generic"));
@@ -111,6 +125,8 @@ test("portfolio automation defaults to 20 pages and repairs ordinary issues", ()
   assert.ok(renderer.includes("no_usable_images"));
   assert.ok(renderer.includes("renderFallbackPdfFromHtml"));
   assert.ok(renderer.includes("writeSimplePdf"));
+  assert.ok(packageWriter.includes("portfolioVisualReport: lastRender.visualReport"));
+  assert.ok(qualityChecks.includes("Portfolio final visual/aesthetic gate did not pass."));
   assert.ok(projectAutomation.includes("professional artist portfolio editor"));
   assert.ok(projectAutomation.includes("portfolioConstraints"));
   assert.ok(projectAutomation.includes("autoRepairIntent"));

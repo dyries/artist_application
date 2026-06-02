@@ -47,10 +47,12 @@ npm run dev
 4. 点击“刷新 Codex 上下文”，生成 `generated/codex/artist-snapshot.json` 和 `generated/codex/automation-instructions.md`。
 5. 自动化从公开机会源发现候选链接，核验真实性、截止日期、费用、资格、地点、语言和材料要求，并输出中文 Top 推荐。
 6. 用户只审核第一节点：选择申请哪些机会。页面中点击“选择申请”后，该机会进入 `selected_by_user`。
-7. AI 自动准备 CV、bio、statement、application answers、portfolio、captions、email draft 和 file checklist，并运行质量检查。
-8. 用户只审核第二节点：最终提交包是否可以提交。未经明确确认，不发送邮件、不提交表单、不付款、不登录、不处理验证码。
+7. AI 自动准备 CV、bio、statement、application answers、portfolio、captions、email draft 和 file checklist。作品集默认自动生成 20 页左右；系统自动选图、排序、写 caption/statement、排版、生成 HTML/PDF、质量检查，并最多 3 轮自动修复普通问题。
+8. 用户只审核第二节点：最终提交包是否可以提交。用户不逐页审核作品集，不手动修普通 internal issues。未经明确确认，不发送邮件、不提交表单、不付款、不登录、不处理验证码。
 
 真实申请包位于 `generated/applications/<机会编号>-<机会名>/`，并固定分为 `internal-notes/`、`user-review/`、`external-submission/`。测试/模拟运行写入 `generated/test-runs/` 或 `generated/mock-runs/`，不会进入真实申请状态。示例预览见 [示例申请包](docs/example-application-package.md)。
+
+作品集自动化输出固定分层：`external-submission/` 只放正式提交材料；`internal-notes/` 记录 `portfolio-source-audit.json`、`portfolio-plan.json`、`portfolio-visual-check.json`、`portfolio-auto-repair-log.json` 和风险；`user-review/` 只给中文最终确认摘要。机会要求短版、单图上传或 combined PDF 时，会生成 `portfolio-short-10p.pdf`、`images-for-upload/` 或 `combined-application-package.pdf`。只有没有可用作品图片、关键强制材料无法自动解决、资格/费用不明、登录、付款、验证码、法律声明、隐私风险或不可逆提交动作才会阻塞用户。
 
 ## Documents
 

@@ -1,5 +1,76 @@
 # Fix Log
 
+## 2026-06-02 00:00 CST
+
+### Scope
+
+- Continued the portfolio generation refactor toward a PDF-first, automatic artist portfolio designer/editor.
+
+### Issues Found
+
+- The renderer still lacked the full visual/aesthetic report fields required for readiness decisions.
+- Image dimensions and quality metadata were collected in isolated places but not recorded as a planning artifact or used consistently for layout/theme choices.
+- Fallback text PDFs could be mistaken for professional portfolio PDFs.
+- Live layout research could spend too long probing many default references.
+
+### Root Cause
+
+- The visual gate reported only a nested diagnostic subset rather than top-level layout counts, repeated runs, scores, missing images, and caption diagnostics.
+- Portfolio planning used filename and size scoring but did not have a reusable `sharp` analysis module.
+- The PDF renderer returned a path for both Playwright and fallback PDFs without recording professional readiness.
+- Research fetching was uncapped.
+
+### Changes
+
+- Added `src/lib/portfolioImageAnalysis.ts` to analyze image dimensions, orientation, brightness, dominant color, quality risks, and recommended roles with `sharp`.
+- Stored image analyses in `portfolio-source-audit.json` and used them in ranking, theme selection, and small/panoramic image layout decisions.
+- Extended `portfolio-visual-check.json` with layout strategy counts, theme counts, repeated layout runs, sparse pages, white-page ratio, missing/small images, caption issues, aesthetic score, professional PDF score, and fallback-PDF status.
+- Made unresolved low aesthetic/professional PDF scores, fallback PDFs, page-count failures, missing images, and forbidden language block final readiness after repair.
+- Capped live portfolio research fetches and screenshots while still honoring configured HTTPS research sources first.
+- Added `npm run test:portfolio` and strengthened behavior tests for image analysis and visual report fields.
+- Fixed duplicate-image handling so normal overview-to-primary/detail reuse is allowed while excessive repeated full/non-overview use is still repaired.
+- Added upload-only opportunity constraints so individual-image-only calls do not force the default 20-page PDF rule.
+- Added fast planning behavior tests for default page constraints, 10-page opportunity limits, upload-only calls, and enough-material expansion toward 20 pages.
+- Corrected the caption-density gate so formal statement and selected-works-list pages are not misclassified as dense captions; ready packages now show the visual/aesthetic gate as passed when no actual gate issues remain.
+- Removed `Test Preview`, `Web preview`, and browser-preview language from the public `/portfolio-test` surface so the visible portfolio example does not contradict formal PDF-first portfolio rules.
+- Added Playwright portfolio page screenshots under `internal-notes/portfolio-page-screenshots/` and recorded their paths in `portfolio-visual-check.json` for default portfolio visual/aesthetic review.
+- Fixed portfolio output quality counting so `single_work_full_page` image paths count as selected image paths and do not produce false “no selected image paths” issues.
+- Wired the final portfolio visual/aesthetic report into `runApplicationQualityChecks` so `quality-report.json` fails when the final portfolio visual gate fails, matching package readiness.
+- Added an integration assertion that non-`quiet_white` portfolio screenshots are not pure white, exercising the non-white background preservation path alongside Playwright `printBackground: true`.
+
+### Files Changed
+
+- `docs/fix-log.md`
+- `docs/portfolio_generation_rules.md`
+- `package.json`
+- `src/lib/package.ts`
+- `src/lib/portfolioImageAnalysis.ts`
+- `src/lib/portfolioRenderer.ts`
+- `src/lib/portfolioQualityCheck.ts`
+- `src/lib/qualityChecks.ts`
+- `src/lib/schemas.ts`
+- `src/types/domain.ts`
+- `src/app/portfolio-test/page.tsx`
+- `tests/application-boundaries.test.mjs`
+- `tests/package-behavior-runner.mjs`
+- `tests/portfolio-planning-behavior.test.mjs`
+- `tests/portfolio-planning-runner.mjs`
+- `tests/portfolio-generation.test.mjs`
+- `tests/portfolio-quality-behavior.test.mjs`
+- `tests/portfolio-quality-runner.mjs`
+
+### Verification
+
+```bash
+npm run lint
+npm run typecheck
+npm run test:portfolio
+node --test tests/package-behavior.test.mjs
+npm run check
+```
+
+Rendered `generated/test-runs/applications/992001-probe-many-default/external-submission/portfolio.pdf` to PNG snapshots with ImageMagick and visually checked cover, statement, project opener, image grid, selected works list, and contact pages for PDF-first appearance, non-white theme/backgrounds, page numbering, and absence of overlap/browser-preview language.
+
 ## 2026-06-01 15:46 CST
 
 ### Scope
@@ -523,6 +594,51 @@ Visual spot checks were performed on the regenerated portfolio cover, portfolio 
 
 - The `rg` verification intentionally still matches the new rules themselves and internal notes, because the rules quote the prohibited phrases as examples. Those phrases should not appear in upload-ready CV/portfolio/form text.
 - Exact artwork dimensions should be added only after the artist confirms them; until then, final-facing captions omit dimensions rather than showing placeholders.
+
+## 2026-06-01 00:00 CST
+
+### Scope
+
+- Refactored portfolio generation toward automatic 20-page planning, classified visual gate issues, and an auto-repair loop.
+
+### Changes
+
+- Added portfolio constraints, image roles, visual gate issue classifications, auto-repair log, and variant types.
+- Replaced the 8-work fallback with `buildAutomaticPortfolioPlan`, defaulting to `targetPages: 20`, `minimumPages: 16`, and `maximumPages: 24` unless opportunity text overrides the page count.
+- Added `generatePortfolioWithAutoRepair`, which renders, classifies issues, repairs ordinary problems for up to 3 rounds, writes `portfolio-auto-repair-log.json`, and lets only blocking issues decide `quality_blocked`.
+- Changed portfolio image copying to stable unique hashed filenames so duplicate basenames from different folders cannot overwrite each other.
+- Updated user-review copy so the artist sees an automated portfolio summary and final confirmation prompt instead of being told to handle ordinary internal issues.
+- Updated project automation prompts and schemas so the AI acts as a professional portfolio editor and emits portfolio constraints, variants, and repair intent.
+- Materialized opportunity-specific variants instead of only recording planned variants: short portfolio PDF/HTML, individual upload-image folder, and combined application PDF/HTML.
+- Updated machine-readable automation rules to require auto-repair for ordinary portfolio problems instead of sending image/layout failures straight to `quality_blocked`.
+- Added explicit `selectedImages` / `excludedImages` schema and package inputs, plus visual-gate classifications and repair handlers for long captions, generic statements, dense series grids, and duplicate images.
+- Split portfolio preparation/output quality checks into blocking issues and warnings, so missing legacy portfolio references, limited design references, dense text, and cliche language no longer force `quality_blocked` after the auto-repair path exists.
+- Improved automatic planning so existing portfolio source text biases work ordering and, when work records lack images, image files from works/source-materials/inbox can become fallback portfolio candidates with internal quality risks.
+- Tightened variant and quality behavior: combined PDFs now include portfolio pages as well as external text files, external file-size problems are recorded as warnings rather than user-blocking issues, existing portfolio title matching is normalized, and image scoring uses available resolution/aspect/file-size metadata.
+- Added explicit final portfolio result/manifest fields for selected images, excluded images, missing metadata, and quality risks, and expanded `materialsActuallyUsed` to include portfolio image paths actually used.
+- Added a no-browser PDF fallback so `portfolio.pdf`, short portfolio PDFs, and combined PDFs are still generated when Playwright is installed but Chromium is unavailable.
+
+### Files Changed
+
+- `src/types/domain.ts`
+- `src/lib/schemas.ts`
+- `src/lib/package.ts`
+- `src/lib/portfolioRenderer.ts`
+- `src/lib/projectAutomation.ts`
+- `src/lib/automationRules.ts`
+- `docs/portfolio_generation_rules.md`
+- `docs/rules.md`
+- `docs/fix-log.md`
+- `README.md`
+- `tests/portfolio-generation.test.mjs`
+
+### Verification
+
+```bash
+npm run typecheck
+```
+
+Full verification continues with lint, tests, structure check, build, and `npm run check`.
 
 ## 2026-05-19 13:56 CST
 

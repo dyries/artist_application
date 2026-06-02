@@ -95,6 +95,7 @@ export type PortfolioConstraints = {
   };
   requiresSinglePdf?: boolean;
   requiresCombinedPdf?: boolean;
+  requiresImageUploadOnly?: boolean;
 };
 
 export type PortfolioPlanImage = {
@@ -105,13 +106,63 @@ export type PortfolioPlanImage = {
   qualityRisks?: string[];
 };
 
+export type PortfolioImageAnalysis = {
+  path: string;
+  width: number;
+  height: number;
+  aspectRatio: number;
+  orientation: "portrait" | "landscape" | "square" | "panorama";
+  fileSizeBytes: number;
+  format: string;
+  dominantColors: string[];
+  averageBrightness: number;
+  tooSmallForFullPage: boolean;
+  qualityRisks: string[];
+  recommendedRoles: PortfolioImageRole[];
+};
+
 export type PortfolioPageRole = "cover" | "statement" | "project_opener" | "overview" | "primary_work" | "detail" | "installation" | "context" | "list" | "contact";
+
+export type PortfolioThemeName =
+  | "quiet_white"
+  | "warm_archive"
+  | "soft_gray_gallery"
+  | "dark_installation"
+  | "image_research_bluegray"
+  | "painting_color_field";
+
+export type PortfolioTheme = {
+  name: PortfolioThemeName;
+  background: string;
+  text: string;
+  secondaryText: string;
+  accent: string;
+  captionBackground?: string;
+  imageFrame?: "none" | "hairline" | "soft_shadow" | "inset_panel";
+};
+
+export type PortfolioPageDesign = {
+  themeName: PortfolioThemeName;
+  backgroundMode: "plain" | "accent_panel" | "split_field" | "image_bleed" | "soft_block";
+  emphasis: "image" | "text" | "balanced" | "section";
+  pageNumber?: boolean;
+};
+
+export type PortfolioDesignSystem = {
+  themeName: PortfolioThemeName;
+  theme: PortfolioTheme;
+  headingScale: "quiet" | "sectional" | "large_cover";
+  pageNumberStyle: "bottom_right" | "outer_margin" | "none";
+  marginSystem: "gallery" | "archive" | "installation";
+  sectionDividerStyle?: "rule" | "accent_block" | "none";
+};
 
 export type PortfolioPageMetadata = {
   projectGroup?: string;
   projectTitle?: string;
   layoutStrategy?: string;
   pageRole?: PortfolioPageRole;
+  design?: PortfolioPageDesign;
   curatorialReason?: string;
   layoutReferenceReason?: string;
 };
@@ -206,6 +257,7 @@ export type PortfolioSourceAudit = {
   };
   portfolioConstraints?: PortfolioConstraints;
   materialsActuallyUsed: string[];
+  imageAnalyses?: PortfolioImageAnalysis[];
 };
 
 export type PortfolioPlan = {
@@ -230,6 +282,7 @@ export type PortfolioPlan = {
     workTypeCounts: Record<string, number>;
     passedDiversityGate: boolean;
   };
+  designSystem?: PortfolioDesignSystem;
   layoutResearchUsed: {
     referenceCount: number;
     researchFile: string;
@@ -245,11 +298,23 @@ export type PortfolioLayoutResearch = {
     title: string;
     url: string;
     sourceType: "artist portfolio" | "school guidance" | "gallery PDF" | "residency guidance" | "MFA example" | "design article";
+    fetched?: boolean;
+    screenshotPath?: string;
+    extractedTextExcerpt?: string;
     relevantFor: string[];
     layoutObservations: string[];
     doNotCopyWarning: boolean;
   }>;
   derivedLayoutPrinciples: string[];
+  executablePatterns?: {
+    recommendedPageRhythm: string[];
+    imageTextRatioRules: string[];
+    captionPlacementRules: string[];
+    projectSectionPatterns: string[];
+    installationDocumentationPattern: string[];
+    seriesGridPattern: string[];
+    colorAndBackgroundGuidance: string[];
+  };
   portfolioStrategyForThisArtist: string[];
   appliedPrinciples?: string[];
   liveWebResearchUnavailable?: boolean;
@@ -277,6 +342,19 @@ export type PortfolioVisualGateResult = {
   maximumPages: number;
   pdfPath: string | null;
   pdfSizeBytes: number;
+  pageScreenshots: string[];
+  layoutStrategyCounts: Record<string, number>;
+  themeCounts: Record<string, number>;
+  repeatedLayoutRuns: Array<{ strategy: string; startPage: number; length: number }>;
+  blankOrSparsePages: number[];
+  whiteOnlyPageRatio: number;
+  webPreviewLanguageHits: string[];
+  missingImages: string[];
+  smallImagePages: number[];
+  captionIssues: Array<{ page: number; issue: string }>;
+  aestheticScore: number;
+  professionalPdfScore: number;
+  usedFallbackPdf?: boolean;
   autoFixableIssues: PortfolioIssueClassification[];
   blockingIssues: PortfolioIssueClassification[];
   warnings: PortfolioIssueClassification[];
@@ -291,6 +369,15 @@ export type PortfolioVisualGateResult = {
     optimized: boolean;
     tooSmallForFullPage: boolean;
   }>;
+  aestheticDiagnostics: {
+    whiteOnlyPageCount: number;
+    layoutStrategyCount: number;
+    longestLayoutRun: number;
+    pagesWithLikelySmallImages: number;
+    pagesWithDenseCaptions: number;
+    forbiddenExternalWords: string[];
+    readsAsHtmlPreview: boolean;
+  };
   domCheck: {
     pageCount: number;
     issues: string[];

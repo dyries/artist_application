@@ -8,6 +8,7 @@ import { runApplicationQualityChecks } from "./qualityChecks";
 import { sanitizeExternalText } from "./outputSanitizer";
 import { renderHtmlToPdf, renderPortfolioPackage } from "./portfolioRenderer";
 import { checkExternalSubmissionFiles } from "./fileQualityCheck";
+import { analyzePortfolioImages } from "./portfolioImageAnalysis";
 import type {
   Application,
   ArtistProfile,
@@ -16,10 +17,13 @@ import type {
   PortfolioAutoRepairLog,
   PortfolioConstraints,
   PortfolioIssueClassification,
+  PortfolioImageAnalysis,
   PortfolioLayoutResearch,
   PortfolioPlan,
   PortfolioPlanImage,
   PortfolioPlanPage,
+  PortfolioTheme,
+  PortfolioThemeName,
   PortfolioSourceAudit,
   PortfolioVariant,
   SourceMaterial,
@@ -120,6 +124,7 @@ export function writeApplicationPackage(opportunity: Opportunity, app: PackageDr
     portfolioText: sanitized.texts["portfolio-text.md"] || "",
     portfolioPlan,
     portfolioSourceAudit: sourceAudit,
+    portfolioVisualReport: lastRender.visualReport,
     portfolioWebResearchReferences: app.portfolioWebResearchReferences || [],
     materialSources: options.materialSources,
     runMode: options.runMode
@@ -210,6 +215,10 @@ export function writeApplicationPackage(opportunity: Opportunity, app: PackageDr
       minimumPages: portfolioPlan.portfolioConstraints.minimumPages,
       maximumPages: portfolioPlan.portfolioConstraints.maximumPages,
       actualPageCount: lastRender.visualReport.pageCount,
+      themeUsed: portfolioPlan.designSystem?.themeName || lastRender.visualReport.themeCounts,
+      layoutStrategyCounts: lastRender.visualReport.layoutStrategyCounts,
+      aestheticScore: lastRender.visualReport.aestheticScore,
+      professionalPdfScore: lastRender.visualReport.professionalPdfScore,
       autoRepairRounds: finalPortfolioResult.autoRepairLog.rounds.length,
       selectedImages: finalPortfolioResult.selectedImages,
       excludedImages: finalPortfolioResult.excludedImages,
@@ -329,6 +338,7 @@ function performPortfolioLayoutResearch(opportunity: Opportunity, options: Write
       title: "Artists Collecting Society portfolio guide",
       url: "https://artistscollectingsociety.org/news/artist-portfolio-guide/",
       sourceType: "school guidance",
+      fetched: false,
       relevantFor: ["caption", "selected works list", "painting page"],
       layoutObservations: ["Application portfolios benefit from strong image priority and concise factual captions.", "Captions should carry title, date, size, and medium where known."],
       doNotCopyWarning: true
@@ -337,6 +347,7 @@ function performPortfolioLayoutResearch(opportunity: Opportunity, options: Write
       title: "Rhode Island School of Design MFA application portfolio guidance",
       url: "https://www.risd.edu/admissions/graduate/apply",
       sourceType: "MFA example",
+      fetched: false,
       relevantFor: ["series / grid", "caption", "cover"],
       layoutObservations: ["Fine art application portfolios are treated as a curated selection, not a complete archive.", "Image order and concise metadata matter because reviewers scan quickly."],
       doNotCopyWarning: true
@@ -345,6 +356,7 @@ function performPortfolioLayoutResearch(opportunity: Opportunity, options: Write
       title: "School of the Art Institute of Chicago graduate portfolio guidance",
       url: "https://www.saic.edu/admissions/graduate/portfolio",
       sourceType: "MFA example",
+      fetched: false,
       relevantFor: ["project opener", "painting page", "series / grid"],
       layoutObservations: ["Portfolio selections should represent a coherent practice across media and projects.", "Series can be summarized through selected images rather than exhaustive repetition."],
       doNotCopyWarning: true
@@ -353,6 +365,7 @@ function performPortfolioLayoutResearch(opportunity: Opportunity, options: Write
       title: "UCL Slade MFA application portfolio information",
       url: "https://www.ucl.ac.uk/slade/study/apply",
       sourceType: "school guidance",
+      fetched: false,
       relevantFor: ["selected works list", "statement", "caption"],
       layoutObservations: ["Applications distinguish artist statement, CV, and visual documentation as separate information layers.", "Formal metadata should remain clear and brief."],
       doNotCopyWarning: true
@@ -361,6 +374,7 @@ function performPortfolioLayoutResearch(opportunity: Opportunity, options: Write
       title: "SculptureCenter exhibition and artist documentation pages",
       url: "https://www.sculpture-center.org/",
       sourceType: "gallery PDF",
+      fetched: false,
       relevantFor: ["installation spread", "installation documentation", "detail"],
       layoutObservations: ["Installation documentation should show the spatial relation before details.", "Captions should not crowd installation images."],
       doNotCopyWarning: true
@@ -369,6 +383,7 @@ function performPortfolioLayoutResearch(opportunity: Opportunity, options: Write
       title: "Art Omi residency application information",
       url: "https://artomi.org/residencies/",
       sourceType: "residency guidance",
+      fetched: false,
       relevantFor: ["project opener", "statement", "selected works list"],
       layoutObservations: ["Residency materials need a concise practice overview and selected evidence of current direction.", "Project grouping helps explain why works belong together."],
       doNotCopyWarning: true
@@ -377,6 +392,7 @@ function performPortfolioLayoutResearch(opportunity: Opportunity, options: Write
       title: "Vermont Studio Center application information",
       url: "https://vermontstudiocenter.org/apply/",
       sourceType: "residency guidance",
+      fetched: false,
       relevantFor: ["cover", "caption", "painting page"],
       layoutObservations: ["Application review favors direct, readable images with limited supporting text.", "Painting pages should preserve scale, edges, and factual captioning."],
       doNotCopyWarning: true
@@ -385,18 +401,47 @@ function performPortfolioLayoutResearch(opportunity: Opportunity, options: Write
       title: "Exhibit-E artist websites and PDF portfolio conventions",
       url: "https://www.exhibit-e.com/",
       sourceType: "design article",
+      fetched: false,
       relevantFor: ["cover", "project opener", "selected works list", "caption"],
       layoutObservations: ["Artist portfolio presentation often separates project identity, selected images, biography, and contact.", "Whitespace and restrained typography help images carry the page."],
       doNotCopyWarning: true
     }
   ];
-  const reachable = candidates.filter((reference) => canReachUrl(reference.url));
+  const configuredReferences = parseResearchSourceUrls(process.env.ARTIST_STUDIO_PORTFOLIO_RESEARCH_SOURCE_URLS).map((url, index) => ({
+    title: `Configured portfolio research source ${index + 1}`,
+    url,
+    sourceType: "artist portfolio" as const,
+    fetched: false,
+    relevantFor: ["page rhythm", "layout", "caption"],
+    layoutObservations: ["Configured live source is used only to derive reusable layout principles, not to copy a specific design."],
+    doNotCopyWarning: true
+  }));
+  const researchCandidates = configuredReferences.length ? [...configuredReferences, ...candidates.slice(0, 2)] : candidates.slice(0, 1);
+  const reachable = researchCandidates
+    .map((reference) => {
+      const extractedTextExcerpt = fetchReferenceExcerpt(reference.url);
+      return { ...reference, fetched: Boolean(extractedTextExcerpt), extractedTextExcerpt };
+    })
+    .filter((reference) => reference.fetched);
+  const referencesWithScreenshots = reachable.map((reference, index) => ({
+    ...reference,
+    screenshotPath: index < 1 ? captureResearchScreenshot(reference.url, internalDir, index) : undefined
+  }));
   const derivedLayoutPrinciples = fallbackLayoutPrinciples();
   const research: PortfolioLayoutResearch = {
     searchedAt: new Date().toISOString(),
     queriesUsed,
-    references: reachable,
+    references: referencesWithScreenshots,
     derivedLayoutPrinciples,
+    executablePatterns: {
+      recommendedPageRhythm: ["cover", "short_statement", "project_opener", "installation_overview", "single_work_full_page", "detail_page", "series_overview_grid", "two_image_spread", "text_image_context", "selected_works_list", "contact_or_cv_summary"],
+      imageTextRatioRules: ["Image-first pages should use at least 65% of the live page area.", "Statement/context pages should keep text under one readable column.", "Grid pages should use four images or fewer unless the opportunity requires upload thumbnails."],
+      captionPlacementRules: ["Captions belong below or beside the image in 9-10.5pt equivalent type.", "Captions must stay factual: title, year, medium, dimensions or duration."],
+      projectSectionPatterns: ["Use project opener before each major group.", "Alternate overview, primary image, detail/context, and paired image pages."],
+      installationDocumentationPattern: ["Lead with spatial view, then detail or scale/context image.", "Avoid representing installation work through only one flat cropped image."],
+      seriesGridPattern: ["Use one readable 2x2 overview grid, then selected primary/detail pages.", "Do not overcrowd with tiny thumbnails."],
+      colorAndBackgroundGuidance: ["Use restrained off-white, gallery gray, charcoal, or cool blue-gray systems based on work type.", "Avoid raw webpage white on every page."]
+    },
     portfolioStrategyForThisArtist: [
       "Group works by inferred project or series before assigning pages.",
       "Use project openers, overview grids, primary work pages, detail/context pages, and a final works list.",
@@ -405,24 +450,61 @@ function performPortfolioLayoutResearch(opportunity: Opportunity, options: Write
       `Build the plan for ${options.profile?.nameEn || options.profile?.name || "the artist"} around available works and source materials, not around a fixed twenty-image quota.`
     ],
     appliedPrinciples: appliedLayoutPrinciples({ derivedLayoutPrinciples } as PortfolioLayoutResearch),
-    liveWebResearchUnavailable: reachable.length === 0,
-    riskNotes: reachable.length === 0 ? ["Live web research unavailable in this environment.", "Using built-in fallback layout principles; no URLs were fabricated."] : []
+    liveWebResearchUnavailable: referencesWithScreenshots.length === 0,
+    riskNotes: referencesWithScreenshots.length === 0 ? ["Live web research unavailable in this environment.", "Using built-in fallback layout principles; no URLs were fabricated."] : []
   };
   fs.writeFileSync(path.join(internalDir, "portfolio-layout-research.json"), JSON.stringify(research, null, 2), "utf8");
   fs.writeFileSync(path.join(internalDir, "portfolio-layout-research.md"), renderPortfolioLayoutResearch(research), "utf8");
   return research;
 }
 
-function canReachUrl(url: string) {
+function captureResearchScreenshot(url: string, internalDir: string, index: number) {
   try {
-    childProcess.execFileSync("curl", ["-L", "--max-time", "8", "--silent", "--head", "--fail", url], {
+    const screenshotDir = path.join(internalDir, "portfolio-layout-research-screenshots");
+    fs.mkdirSync(screenshotDir, { recursive: true });
+    const screenshotPath = path.join(screenshotDir, `reference-${String(index + 1).padStart(2, "0")}.png`);
+    const code = `
+      const { chromium } = require("playwright");
+      (async () => {
+        const browser = await chromium.launch({ headless: true });
+        try {
+          const page = await browser.newPage({ viewport: { width: 1280, height: 1600 } });
+          await page.goto(${JSON.stringify(url)}, { waitUntil: "domcontentloaded", timeout: 8000 });
+          await page.screenshot({ path: ${JSON.stringify(screenshotPath)}, fullPage: false });
+        } finally {
+          await browser.close();
+        }
+      })().catch((error) => { console.error(error); process.exit(1); });
+    `;
+    childProcess.execFileSync(process.execPath, ["-e", code], {
       cwd: projectRoot,
       stdio: "ignore",
-      timeout: 10000
+      timeout: 12000
     });
-    return true;
+    return fs.existsSync(screenshotPath) ? path.relative(internalDir, screenshotPath) : undefined;
   } catch {
-    return false;
+    return undefined;
+  }
+}
+
+function parseResearchSourceUrls(value?: string) {
+  return (value || "")
+    .split(/[\n,]+/)
+    .map((item) => item.trim())
+    .filter((item) => /^https:\/\//i.test(item));
+}
+
+function fetchReferenceExcerpt(url: string) {
+  try {
+    const output = childProcess.execFileSync("curl", ["-L", "--max-time", "5", "--silent", "--fail", url], {
+      cwd: projectRoot,
+      encoding: "utf8",
+      timeout: 7000,
+      maxBuffer: 200_000
+    });
+    return output.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 700);
+  } catch {
+    return undefined;
   }
 }
 
@@ -465,6 +547,9 @@ function renderPortfolioLayoutResearch(research: PortfolioLayoutResearch) {
         `  URL: ${reference.url}`,
         `  Type: ${reference.sourceType}`,
         `  Relevant for: ${reference.relevantFor.join(", ")}`,
+        `  Fetched: ${reference.fetched ? "yes" : "no"}`,
+        reference.screenshotPath ? `  Screenshot: ${reference.screenshotPath}` : "",
+        reference.extractedTextExcerpt ? `  Excerpt: ${reference.extractedTextExcerpt}` : "",
         `  Observations: ${reference.layoutObservations.join(" ")}`
       ].join("\n")).join("\n")
       : "- No live references recorded; no URLs were fabricated.",
@@ -507,11 +592,14 @@ function renderChineseChecklist(
     "",
     "## 作品集自动化结果",
     `- 作品集页数：${visual?.pageCount ?? "已生成待核验"} 页。`,
+    `- 页数要求状态：${visual ? (visual.pageCount >= visual.minimumPages && visual.pageCount <= visual.maximumPages ? "通过" : `未通过（要求 ${visual.minimumPages}-${visual.maximumPages} 页）`) : "待核验"}。`,
     `- ${constraints?.source === "opportunity" ? `机会要求：目标 ${constraints.targetPages} 页，范围 ${constraints.minimumPages}-${constraints.maximumPages} 页。` : "默认目标：20 页左右。"} `,
+    `- 主题系统：${portfolioResult?.plan.designSystem?.themeName || "待统计"}。`,
     `- 使用 project groups：${curatorial?.projectGroupCount ?? "待统计"} 个；各组页数：${projectPageCounts}。`,
+    `- Layout diversity：${visual ? `${Object.keys(visual.layoutStrategyCounts).length} 种策略，最长连续 ${visual.repeatedLayoutRuns[0]?.length || visual.aestheticDiagnostics.longestLayoutRun} 页` : "待统计"}。`,
     `- 单一系列是否过度占比：${curatorial?.dominantProjectGroup ? `${curatorial.dominantProjectGroup} ${(Number(curatorial.dominantProjectPageRatio || 0) * 100).toFixed(1)}%` : "未发现"}。`,
     `- Diversity gate：${curatorial?.passedDiversityGate ? "通过" : "未完全通过或资料不足，系统已自动重排/记录限制"}。`,
-    `- Visual gate：${portfolioResult?.renderedPortfolio?.visualReport.passed ? "通过" : "仍有需系统处理或用户确认的问题"}。`,
+    `- Visual/aesthetic gate：${portfolioResult?.renderedPortfolio?.visualReport.passed ? "通过" : "仍有需系统处理或用户确认的问题"}；aesthetic ${visual?.aestheticScore ?? "待统计"} / professional PDF ${visual?.professionalPdfScore ?? "待统计"}。`,
     `- Layout research：${portfolioResult?.plan.layoutResearchUsed.referenceCount ?? 0} 个参考；已应用原则 ${portfolioResult?.plan.layoutResearchUsed.appliedPrinciples.length ?? 0} 条。`,
     `- 使用核心作品：${coreWorks?.length ? coreWorks.join("；") : "系统已按资料自动选择。"} `,
     `- 自动排除弱图：${portfolioResult?.plan.excludedImages.length ?? 0} 张。`,
@@ -587,9 +675,9 @@ function generatePortfolioWithAutoRepair(
     preflightIssues: imageCopyResult.issues
   });
 
-  for (let round = 1; round <= 3 && renderedPortfolio.visualReport.autoFixableIssues.length > 0 && renderedPortfolio.visualReport.blockingIssues.length === 0; round += 1) {
+  for (let round = 1; round <= 3 && actionableAutoFixableIssues(renderedPortfolio.visualReport.autoFixableIssues).length > 0 && renderedPortfolio.visualReport.blockingIssues.length === 0; round += 1) {
     const before = renderedPortfolio.visualReport.pageCount;
-    const repair = repairPortfolioPlan(plan, renderedPortfolio.visualReport.autoFixableIssues, sourceAudit, layoutResearch);
+    const repair = repairPortfolioPlan(plan, actionableAutoFixableIssues(renderedPortfolio.visualReport.autoFixableIssues), sourceAudit, layoutResearch);
     plan = repair.plan;
     autoFixableIssuesResolved.push(...repair.repairsApplied);
     imageCopyResult = copyPortfolioPlanImages(externalDir, plan);
@@ -611,8 +699,18 @@ function generatePortfolioWithAutoRepair(
     });
   }
 
-  autoRepairLog.finalStatus = renderedPortfolio.visualReport.blockingIssues.length === 0 ? "passed" : "blocked";
-  autoRepairLog.remainingBlockingIssues = renderedPortfolio.visualReport.blockingIssues;
+  const unresolvedBlockingIssues = [
+    ...renderedPortfolio.visualReport.blockingIssues,
+    ...renderedPortfolio.visualReport.autoFixableIssues
+      .filter((issue) => isCriticalUnresolvedPortfolioIssue(issue.code))
+      .map((issue) => ({
+        ...issue,
+        severity: "blocking" as const,
+        message: `Auto-repair did not resolve required portfolio quality issue: ${issue.message}`
+      }))
+  ];
+  autoRepairLog.finalStatus = renderedPortfolio.visualReport.passed && unresolvedBlockingIssues.length === 0 ? "passed" : "blocked";
+  autoRepairLog.remainingBlockingIssues = unresolvedBlockingIssues;
   autoRepairLog.warnings = renderedPortfolio.visualReport.warnings;
   fs.writeFileSync(path.join(internalDir, "portfolio-source-audit.json"), JSON.stringify(sourceAudit, null, 2), "utf8");
   fs.writeFileSync(path.join(internalDir, "portfolio-plan.json"), JSON.stringify(plan, null, 2), "utf8");
@@ -631,9 +729,36 @@ function generatePortfolioWithAutoRepair(
     qualityRisks: plan.qualityRisks,
     autoFixableIssuesResolved,
     warnings: renderedPortfolio.visualReport.warnings,
-    blockingIssues: renderedPortfolio.visualReport.blockingIssues,
+    blockingIssues: unresolvedBlockingIssues,
     variants: buildPortfolioVariants(opportunity, plan, renderedPortfolio.pdfPath)
   };
+}
+
+function actionableAutoFixableIssues(issues: PortfolioIssueClassification[]) {
+  return issues.filter((issue) => issue.code !== "aesthetic_score_too_low" && issue.code !== "professional_pdf_score_too_low");
+}
+
+function isCriticalUnresolvedPortfolioIssue(code: string) {
+  return [
+    "pdf_not_rendered",
+    "page_count_too_low",
+    "page_count_too_high",
+    "forbidden_terms",
+    "no_usable_images",
+    "missing_referenced_image",
+    "portfolio_research_missing",
+    "portfolio_research_not_applied",
+    "curatorial_gate_failed",
+    "layout_strategy_diversity_too_low",
+    "too_many_consecutive_layout_strategy",
+    "white_only_monotony",
+    "reads_as_html_preview",
+    "cover_looks_like_dev_page",
+    "portfolio_degenerated_to_single_image_pages",
+    "fallback_pdf_not_professional",
+    "aesthetic_score_too_low",
+    "professional_pdf_score_too_low"
+  ].includes(code);
 }
 
 function buildPortfolioSourceAudit(
@@ -654,6 +779,14 @@ function buildPortfolioSourceAudit(
     imagePath: work.imagePath
   }));
   const availableImageFiles = listImageFiles([worksDir, sourceMaterialsDir, materialsInboxDir]);
+  const workImagePaths = availableWorks.map((work) => work.imagePath).filter((value): value is string => Boolean(value));
+  const rankedCandidateImageFiles = availableImageFiles
+    .filter((imagePath) => !workImagePaths.includes(imagePath))
+    .map((imagePath) => ({ imagePath, score: scoreImageCandidate(imagePath) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 120)
+    .map((item) => item.imagePath);
+  const imageAnalyses = analyzePortfolioImages([...workImagePaths, ...rankedCandidateImageFiles]);
   const missingMetadata = [
     ...availableWorks.flatMap((work) => {
       const missing = [];
@@ -686,7 +819,8 @@ function buildPortfolioSourceAudit(
       rawMaterialsText
     },
     portfolioConstraints,
-    materialsActuallyUsed: existingPortfolioSources
+    materialsActuallyUsed: existingPortfolioSources,
+    imageAnalyses
   };
 }
 
@@ -716,6 +850,7 @@ function buildAutomaticPortfolioPlan(
     medium: undefined,
     dimensions: undefined
   }));
+  const imageAnalysisByPath = new Map((audit.imageAnalyses || []).map((analysis) => [analysis.path, analysis]));
   const selectedWorks = rankPortfolioWorks(
     app.selectedImages?.length
       ? app.selectedImages.map((image, index) => ({ id: image.workId || `selected-image-${index + 1}`, title: image.title || legacyTitleForImage(app.selectedWorks, image.path) || `Work ${index + 1}`, imagePath: image.path }))
@@ -724,10 +859,19 @@ function buildAutomaticPortfolioPlan(
         : availableWorks.length
           ? availableWorks
           : fallbackImageWorks,
-    portfolioTitleOrder
+    portfolioTitleOrder,
+    imageAnalysisByPath
   );
   const statement = concreteShortStatement(options.profile, selectedWorks);
   const projectGroups = groupPortfolioWorks(selectedWorks);
+  const designSystem = buildPortfolioDesignSystem(choosePortfolioTheme({
+    profile: options.profile,
+    works: options.works || [],
+    selectedImages: selectedWorks.map((work) => planImage(work, "primary")),
+    projectGroups,
+    opportunity,
+    imageAnalyses: audit.imageAnalyses || []
+  }));
   const singleSeriesOnly = projectGroups.length <= 1;
   const pages: PortfolioPlanPage[] = [
     {
@@ -750,7 +894,7 @@ function buildAutomaticPortfolioPlan(
       layoutReferenceReason: "Application portfolio references keep statements concise and separate from image captions."
     }
   ];
-  const imagePages = buildProjectBasedImagePages(projectGroups, constraints.maximumPages - 4, layoutResearch);
+  const imagePages = buildProjectBasedImagePages(projectGroups, constraints.maximumPages - 4, layoutResearch, imageAnalysisByPath);
   pages.push(...imagePages);
   pages.push({
     type: "selected_works_list",
@@ -797,6 +941,7 @@ function buildAutomaticPortfolioPlan(
       ...(app.portfolioQualityRisks || [])
     ],
     curatorialSummary: emptyCuratorialSummary(),
+    designSystem,
     layoutResearchUsed: {
       referenceCount: layoutResearch.references.length,
       researchFile: "internal-notes/portfolio-layout-research.md",
@@ -825,6 +970,13 @@ function normalizePortfolioPlan(plan: PortfolioPlan, options: WritePackageOption
     excludedImages: plan.excludedImages || [],
     qualityRisks: plan.qualityRisks || [],
     curatorialSummary: plan.curatorialSummary || emptyCuratorialSummary(),
+    designSystem: plan.designSystem || buildPortfolioDesignSystem(choosePortfolioTheme({
+      profile: options.profile,
+      works: options.works || [],
+      selectedImages: extractWorksFromPlanWithImages(plan).map((work) => ({ role: "primary", path: work.imagePath || "", caption: work.title })),
+      projectGroups: groupPortfolioWorks(rankPortfolioWorks(extractWorksFromPlanWithImages(plan), [])),
+      opportunity: { title: "", materials: "" } as Opportunity
+    })),
     layoutResearchUsed: plan.layoutResearchUsed || {
       referenceCount: layoutResearch.references.length,
       researchFile: "internal-notes/portfolio-layout-research.md",
@@ -837,16 +989,21 @@ function normalizePortfolioPlan(plan: PortfolioPlan, options: WritePackageOption
 
 function rankPortfolioWorks(
   works: Array<{ id?: number | string; title: string; imagePath?: string; year?: string; medium?: string; dimensions?: string }>,
-  existingPortfolioTitleOrder: string[] = []
+  existingPortfolioTitleOrder: string[] = [],
+  imageAnalysisByPath: Map<string, PortfolioImageAnalysis> = new Map()
 ) {
   return works
     .filter((work) => work.imagePath)
     .map((work) => {
       const existingIndex = existingPortfolioTitleOrder.findIndex((title) => normalizedTitle(title) === normalizedTitle(work.title));
       const existingOrderBoost = existingIndex >= 0 ? Math.max(0, 40 - existingIndex * 3) : 0;
+      const analysis = imageAnalysisByPath.get(work.imagePath || "");
+      const analysisBoost = analysis
+        ? (analysis.tooSmallForFullPage ? -18 : 8) + (analysis.orientation === "panorama" ? -4 : 0) + Math.round((analysis.averageBrightness - 0.35) * 8)
+        : 0;
       return {
         ...work,
-        score: scoreImageCandidate(work.imagePath || "") + existingOrderBoost + (/iconoclasm|hidden|society|dictator|religious|installation/i.test(work.title) ? 15 : 0)
+        score: scoreImageCandidate(work.imagePath || "") + existingOrderBoost + analysisBoost + (/iconoclasm|hidden|society|dictator|religious|installation/i.test(work.title) ? 15 : 0)
       };
     })
     .sort((a, b) => b.score - a.score);
@@ -896,7 +1053,7 @@ function inferWorkType(work: { title: string; medium?: string; imagePath?: strin
   return "series";
 }
 
-function buildProjectBasedImagePages(groups: PortfolioProjectGroup[], maxPages: number, layoutResearch: PortfolioLayoutResearch): PortfolioPlanPage[] {
+function buildProjectBasedImagePages(groups: PortfolioProjectGroup[], maxPages: number, layoutResearch: PortfolioLayoutResearch, imageAnalysisByPath: Map<string, PortfolioImageAnalysis> = new Map()): PortfolioPlanPage[] {
   const pages: PortfolioPlanPage[] = [];
   const groupLimit = Math.max(1, Math.min(6, Math.floor(maxPages / Math.max(1, Math.min(groups.length, 5))) + 1));
   for (const group of groups.slice(0, 8)) {
@@ -905,12 +1062,12 @@ function buildProjectBasedImagePages(groups: PortfolioProjectGroup[], maxPages: 
     const allocation = Math.min(groupLimit, remaining, Math.max(2, group.works.length >= 3 ? 4 : group.works.length + 1));
     pages.push(projectOpenerPage(group, layoutResearch));
     if (allocation <= 1) continue;
-    if (group.works.length >= 3 && pages.length < maxPages) pages.push(seriesOverviewPage(group, layoutResearch));
-    if (/installation/.test(group.workType) && pages.length < maxPages) pages.push(installationPage(group, layoutResearch));
+    if (group.works.length >= 3 && pages.length < maxPages) pages.push(seriesOverviewPage(group, layoutResearch, imageAnalysisByPath));
+    if (/installation/.test(group.workType) && pages.length < maxPages) pages.push(installationPage(group, layoutResearch, imageAnalysisByPath));
     const primary = group.works[0];
-    if (primary && pages.length < maxPages && pages.filter((page) => page.projectGroup === group.group).length < allocation) pages.push(primaryWorkPage(primary, group, layoutResearch));
-    if (group.works[1] && pages.length < maxPages && pages.filter((page) => page.projectGroup === group.group).length < allocation) pages.push(twoImagePage(group, layoutResearch));
-    if (/research|process|series/.test(group.workType) && group.works[2] && pages.length < maxPages && pages.filter((page) => page.projectGroup === group.group).length < allocation) pages.push(contextPage(group, layoutResearch));
+    if (primary && pages.length < maxPages && pages.filter((page) => page.projectGroup === group.group).length < allocation) pages.push(primaryWorkPage(primary, group, layoutResearch, imageAnalysisByPath));
+    if (group.works[1] && pages.length < maxPages && pages.filter((page) => page.projectGroup === group.group).length < allocation) pages.push(twoImagePage(group, layoutResearch, imageAnalysisByPath));
+    if (/research|process|series/.test(group.workType) && group.works[2] && pages.length < maxPages && pages.filter((page) => page.projectGroup === group.group).length < allocation) pages.push(contextPage(group, layoutResearch, imageAnalysisByPath));
   }
   return pages.slice(0, maxPages);
 }
@@ -929,7 +1086,7 @@ function projectOpenerPage(group: PortfolioProjectGroup, layoutResearch: Portfol
   };
 }
 
-function seriesOverviewPage(group: PortfolioProjectGroup, layoutResearch: PortfolioLayoutResearch): PortfolioPlanPage {
+function seriesOverviewPage(group: PortfolioProjectGroup, layoutResearch: PortfolioLayoutResearch, imageAnalysisByPath: Map<string, PortfolioImageAnalysis>): PortfolioPlanPage {
   return {
     type: /research/.test(group.workType) ? "image_research_grid" : "series_overview_grid",
     title: group.group,
@@ -938,14 +1095,14 @@ function seriesOverviewPage(group: PortfolioProjectGroup, layoutResearch: Portfo
     layoutStrategy: /research/.test(group.workType) ? "image_research_grid" : "series_overview_grid",
     pageRole: "overview",
     layout: "grid",
-    images: group.works.slice(0, 4).map((work) => planImage(work, "overview")),
+    images: group.works.slice(0, 4).map((work) => planImage(work, recommendedRoleFor(work, imageAnalysisByPath, "overview"))),
     caption: `${group.group}. ${group.workType} overview.`,
     curatorialReason: "A grid shows relationships inside the series without spending one page per similar image.",
     layoutReferenceReason: layoutResearch.derivedLayoutPrinciples.find((item) => /grid|series/i.test(item)) || "Research principles use overview grids for series pacing."
   };
 }
 
-function installationPage(group: PortfolioProjectGroup, layoutResearch: PortfolioLayoutResearch): PortfolioPlanPage {
+function installationPage(group: PortfolioProjectGroup, layoutResearch: PortfolioLayoutResearch, imageAnalysisByPath: Map<string, PortfolioImageAnalysis>): PortfolioPlanPage {
   return {
     type: "installation_with_details",
     title: group.group,
@@ -954,14 +1111,34 @@ function installationPage(group: PortfolioProjectGroup, layoutResearch: Portfoli
     layoutStrategy: "installation_with_details",
     pageRole: "installation",
     layout: "overview_plus_details",
-    images: group.works.slice(0, 3).map((work, index) => planImage(work, index === 0 ? "installation_view" : "detail")),
+    images: group.works.slice(0, 3).map((work, index) => planImage(work, recommendedRoleFor(work, imageAnalysisByPath, index === 0 ? "installation_view" : "detail"))),
     caption: `${group.group}. Installation documentation and details.`,
     curatorialReason: "Installation work needs spatial documentation before details.",
     layoutReferenceReason: layoutResearch.derivedLayoutPrinciples.find((item) => /installation|documentation/i.test(item)) || "Research principles prioritize space view plus details for installation pages."
   };
 }
 
-function primaryWorkPage(work: RankedPortfolioWork, group: PortfolioProjectGroup, layoutResearch: PortfolioLayoutResearch): PortfolioPlanPage {
+function primaryWorkPage(work: RankedPortfolioWork, group: PortfolioProjectGroup, layoutResearch: PortfolioLayoutResearch, imageAnalysisByPath: Map<string, PortfolioImageAnalysis>): PortfolioPlanPage {
+  const analysis = imageAnalysisByPath.get(work.imagePath || "");
+  if (analysis?.tooSmallForFullPage || analysis?.orientation === "panorama") {
+    return {
+      type: analysis.orientation === "panorama" ? "two_image_spread" : "image_with_caption_below",
+      workId: String(work.id || ""),
+      title: work.title,
+      year: work.year,
+      medium: work.medium,
+      dimensions: work.dimensions,
+      projectGroup: group.group,
+      projectTitle: group.group,
+      layoutStrategy: analysis.orientation === "panorama" ? "two_image_spread" : "single_work_with_detail",
+      pageRole: analysis.orientation === "panorama" ? "overview" : "detail",
+      layout: analysis.orientation === "panorama" ? "spread" : "single",
+      images: [planImage(work, recommendedRoleFor(work, imageAnalysisByPath, analysis.tooSmallForFullPage ? "detail" : "overview"))],
+      caption: formatCaption(work.title, work.year, work.medium, work.dimensions),
+      curatorialReason: analysis.tooSmallForFullPage ? "Image analysis marked this source too small for full-page use, so it is placed in a detail-safe layout." : "Image analysis marked this source as panoramic, so it is placed as a wider overview/spread rather than forced into a vertical full-page template.",
+      layoutReferenceReason: layoutResearch.derivedLayoutPrinciples.find((item) => /scale|grid|spread/i.test(item)) || "Research principles adapt image scale and orientation to page layout."
+    };
+  }
   return {
     type: "single_work_full_page",
     workId: String(work.id || ""),
@@ -981,7 +1158,7 @@ function primaryWorkPage(work: RankedPortfolioWork, group: PortfolioProjectGroup
   };
 }
 
-function twoImagePage(group: PortfolioProjectGroup, layoutResearch: PortfolioLayoutResearch): PortfolioPlanPage {
+function twoImagePage(group: PortfolioProjectGroup, layoutResearch: PortfolioLayoutResearch, imageAnalysisByPath: Map<string, PortfolioImageAnalysis>): PortfolioPlanPage {
   return {
     type: "two_image_spread",
     workId: String(group.works[1]?.id || ""),
@@ -994,14 +1171,14 @@ function twoImagePage(group: PortfolioProjectGroup, layoutResearch: PortfolioLay
     layoutStrategy: "two_image_spread",
     pageRole: "detail",
     layout: "detail_spread",
-    images: group.works.slice(1, 3).map((work) => planImage(work, "detail")),
+    images: group.works.slice(1, 3).map((work) => planImage(work, recommendedRoleFor(work, imageAnalysisByPath, "detail"))),
     caption: formatCaption(group.works[1]?.title || group.group, group.works[1]?.year, group.works[1]?.medium, group.works[1]?.dimensions),
     curatorialReason: "Pairs related images to vary rhythm and avoid repeated single-image pages.",
     layoutReferenceReason: layoutResearch.derivedLayoutPrinciples.find((item) => /rhythm|spread/i.test(item)) || "Research principles use spreads and detail pairings for pacing."
   };
 }
 
-function contextPage(group: PortfolioProjectGroup, layoutResearch: PortfolioLayoutResearch): PortfolioPlanPage {
+function contextPage(group: PortfolioProjectGroup, layoutResearch: PortfolioLayoutResearch, imageAnalysisByPath: Map<string, PortfolioImageAnalysis>): PortfolioPlanPage {
   const work = group.works[2] || group.works[0];
   return {
     type: "text_image_context",
@@ -1015,7 +1192,7 @@ function contextPage(group: PortfolioProjectGroup, layoutResearch: PortfolioLayo
     layoutStrategy: "text_image_context",
     pageRole: "context",
     layout: "text_image",
-    images: [planImage(work, "context")],
+    images: [planImage(work, recommendedRoleFor(work, imageAnalysisByPath, "context"))],
     text: projectIntroText(group),
     caption: formatCaption(work.title, work.year, work.medium, work.dimensions),
     curatorialReason: "Adds process or conceptual context so the portfolio reads as projects, not only images.",
@@ -1033,6 +1210,60 @@ function planImage(work: RankedPortfolioWork, role: PortfolioPlanImage["role"]):
   };
 }
 
+function recommendedRoleFor(work: { imagePath?: string }, imageAnalysisByPath: Map<string, PortfolioImageAnalysis>, fallback: PortfolioPlanImage["role"]) {
+  return imageAnalysisByPath.get(work.imagePath || "")?.recommendedRoles.find((role) => role !== "excluded" && role !== "weak_candidate") || fallback;
+}
+
+function choosePortfolioTheme(input: {
+  profile?: ArtistProfile;
+  works: Work[];
+  selectedImages: PortfolioPlanImage[];
+  projectGroups: PortfolioProjectGroup[];
+  opportunity: Opportunity;
+  imageAnalyses?: PortfolioImageAnalysis[];
+}): PortfolioThemeName {
+  const text = [
+    input.profile?.statementEn,
+    input.profile?.bioEnMedium,
+    input.opportunity.title,
+    input.opportunity.materials,
+    input.opportunity.rawContent,
+    input.works.map((work) => `${work.titleEn || work.title} ${work.mediumEn || work.medium}`).join(" "),
+    input.projectGroups.map((group) => `${group.group} ${group.workType}`).join(" ")
+  ].filter(Boolean).join(" ").toLowerCase();
+  if (/projection|night|dark|performance|video|screen|sound/.test(text)) return "dark_installation";
+  if (input.imageAnalyses?.length) {
+    const averageBrightness = input.imageAnalyses.reduce((sum, analysis) => sum + analysis.averageBrightness, 0) / input.imageAnalyses.length;
+    const panoramaRatio = input.imageAnalyses.filter((analysis) => analysis.orientation === "panorama").length / input.imageAnalyses.length;
+    if (averageBrightness < 0.32) return "dark_installation";
+    if (panoramaRatio > 0.35) return "soft_gray_gallery";
+  }
+  if (/digital|image research|research|archive image|sound|media/.test(text)) return "image_research_bluegray";
+  if (/archive|history|memory|mausoleum|religious|iconoclasm|document/.test(text)) return "warm_archive";
+  if (/installation|site|space|sculpture|object|documentation/.test(text)) return "soft_gray_gallery";
+  if (/painting|canvas|acrylic|oil|color/.test(text)) return "painting_color_field";
+  return "quiet_white";
+}
+
+function buildPortfolioDesignSystem(themeName: PortfolioThemeName): PortfolioPlan["designSystem"] {
+  const themes: Record<PortfolioThemeName, PortfolioTheme> = {
+    quiet_white: { name: "quiet_white", background: "#f7f6f2", text: "#171717", secondaryText: "#5a5650", accent: "#7b6f5f", captionBackground: "rgba(247,246,242,0.88)", imageFrame: "hairline" },
+    warm_archive: { name: "warm_archive", background: "#eee8dc", text: "#1e1b17", secondaryText: "#625b50", accent: "#8a6f45", captionBackground: "rgba(238,232,220,0.9)", imageFrame: "inset_panel" },
+    soft_gray_gallery: { name: "soft_gray_gallery", background: "#e7e8e5", text: "#181a1a", secondaryText: "#555b59", accent: "#6b746f", captionBackground: "rgba(231,232,229,0.9)", imageFrame: "soft_shadow" },
+    dark_installation: { name: "dark_installation", background: "#202120", text: "#f0eee8", secondaryText: "#b9b5aa", accent: "#9f8d65", captionBackground: "rgba(32,33,32,0.82)", imageFrame: "none" },
+    image_research_bluegray: { name: "image_research_bluegray", background: "#e4e9eb", text: "#151b1f", secondaryText: "#53616a", accent: "#557184", captionBackground: "rgba(228,233,235,0.9)", imageFrame: "hairline" },
+    painting_color_field: { name: "painting_color_field", background: "#f1efe7", text: "#191815", secondaryText: "#5e584e", accent: "#8f604d", captionBackground: "rgba(241,239,231,0.9)", imageFrame: "soft_shadow" }
+  };
+  return {
+    themeName,
+    theme: themes[themeName],
+    headingScale: themeName === "dark_installation" ? "sectional" : "quiet",
+    pageNumberStyle: "bottom_right",
+    marginSystem: themeName === "warm_archive" ? "archive" : themeName === "dark_installation" || themeName === "soft_gray_gallery" ? "installation" : "gallery",
+    sectionDividerStyle: themeName === "painting_color_field" ? "accent_block" : "rule"
+  };
+}
+
 function projectIntroText(group: PortfolioProjectGroup) {
   const media = [...new Set(group.works.map((work) => work.medium).filter(Boolean))].slice(0, 2).join(" and ");
   return cleanExternalPortfolioText(`${group.group} is presented as a ${group.workType} project${media ? ` using ${media}` : ""}. The section combines overview, selected work, detail, and context pages to show both image relationships and material decisions.`);
@@ -1041,8 +1272,15 @@ function projectIntroText(group: PortfolioProjectGroup) {
 function expandPlanTowardTarget(plan: PortfolioPlan): PortfolioPlan {
   const pages = sanitizePortfolioPages(plan.pages);
   const imagePages = pages.filter(isImagePage);
+  const uniqueImageCount = new Set(imagePages.flatMap((page) => {
+    if (page.type === "work_full_page" || page.type === "single_work_full_page") return [page.imagePath];
+    return "images" in page ? page.images.map((image) => image.path) : [];
+  }).filter(Boolean)).size;
+  const desiredPageCount = uniqueImageCount >= Math.max(6, plan.portfolioConstraints.minimumPages - 4)
+    ? Math.min(plan.portfolioConstraints.targetPages, plan.portfolioConstraints.maximumPages)
+    : plan.portfolioConstraints.minimumPages;
   let nextIndex = 0;
-  while (pages.length < plan.portfolioConstraints.minimumPages && pages.length < plan.portfolioConstraints.maximumPages && imagePages.length > 0) {
+  while (pages.length < desiredPageCount && pages.length < plan.portfolioConstraints.maximumPages && imagePages.length > 0) {
     const source = imagePages[nextIndex % imagePages.length];
     const detail = detailPageFrom(source, nextIndex);
     if (!detail) break;
@@ -1211,6 +1449,10 @@ function detailPageFrom(page: PortfolioPlanPage, index: number): PortfolioPlanPa
       year: page.year,
       medium: page.medium,
       dimensions: page.dimensions,
+      projectGroup: page.projectGroup,
+      projectTitle: page.projectTitle,
+      layoutStrategy: "text_image_context",
+      pageRole: "context",
       layout: "text_image",
       images: [{ role: index % 2 ? "detail" : "context", path: page.imagePath, caption: page.caption }],
       text: conciseWorkNote(page.title, page.medium),
@@ -1225,6 +1467,10 @@ function detailPageFrom(page: PortfolioPlanPage, index: number): PortfolioPlanPa
       year: page.year,
       medium: page.medium,
       dimensions: page.dimensions,
+      projectGroup: page.projectGroup,
+      projectTitle: page.projectTitle,
+      layoutStrategy: "detail_page",
+      pageRole: "detail",
       layout: "detail_spread",
       images: page.images.slice(0, 2).map((image) => ({ ...image, role: image.role === "primary" ? "detail" : image.role })),
       caption: compressCaption(page.caption || formatCaption(page.title, page.year, page.medium, page.dimensions))
@@ -1237,10 +1483,19 @@ function repairPortfolioPlan(plan: PortfolioPlan, issues: PortfolioIssueClassifi
   let nextPlan = { ...plan, pages: [...plan.pages] };
   const repairsApplied: string[] = [];
   for (const issue of issues) {
-    if (issue.code === "curatorial_gate_failed" || issue.code === "project_diversity_too_low" || issue.code === "single_project_selected_works" || issue.code === "dominant_project_over_35_percent" || issue.code === "layout_strategy_diversity_too_low" || issue.code === "portfolio_degenerated_to_single_image_pages" || issue.code === "too_many_consecutive_full_page_works" || issue.code === "portfolio_research_not_applied") {
+    if (issue.code === "curatorial_gate_failed" || issue.code === "project_diversity_too_low" || issue.code === "single_project_selected_works" || issue.code === "dominant_project_over_35_percent" || issue.code === "layout_strategy_diversity_too_low" || issue.code === "portfolio_degenerated_to_single_image_pages" || issue.code === "too_many_consecutive_full_page_works" || issue.code === "too_many_consecutive_layout_strategy" || issue.code === "portfolio_research_not_applied") {
       const repaired = repairCuratorialPlan(nextPlan, sourceAudit, layoutResearch);
       nextPlan = repaired.plan;
       repairsApplied.push(...repaired.repairsApplied);
+    } else if (issue.code === "white_only_monotony") {
+      const inferredTheme = choosePortfolioTheme({
+        works: [],
+        selectedImages: extractSelectedPortfolioImages(nextPlan).map((image) => ({ role: image.role, path: image.path, caption: image.caption })),
+        projectGroups: groupPortfolioWorks(rankPortfolioWorks(extractWorksFromPlanWithImages(nextPlan), [])),
+        opportunity: { title: "", materials: nextPlan.qualityRisks.join(" ") } as Opportunity
+      });
+      nextPlan = { ...nextPlan, designSystem: buildPortfolioDesignSystem(inferredTheme === "quiet_white" ? "warm_archive" : inferredTheme) };
+      repairsApplied.push(`Changed portfolio theme to ${nextPlan.designSystem?.themeName} to avoid white-only monotony.`);
     } else if (issue.code === "page_count_too_low") {
       const before = nextPlan.pages.length;
       const originalConstraints = nextPlan.portfolioConstraints;
@@ -1256,7 +1511,7 @@ function repairPortfolioPlan(plan: PortfolioPlan, issues: PortfolioIssueClassifi
     } else if (issue.code === "page_count_too_high") {
       nextPlan.pages = [nextPlan.pages[0], ...nextPlan.pages.slice(1).filter((page) => page.type !== "text_left_image_right" && page.type !== "two_image_detail_spread")].slice(0, nextPlan.portfolioConstraints.maximumPages);
       repairsApplied.push(`Reduced page count to ${nextPlan.pages.length} pages by removing secondary detail spreads.`);
-    } else if (issue.code === "caption_too_long" || issue.code === "forbidden_terms") {
+    } else if (issue.code === "caption_too_long" || issue.code === "captions_too_dense" || issue.code === "forbidden_terms" || issue.code === "reads_as_html_preview" || issue.code === "cover_looks_like_dev_page") {
       nextPlan.pages = sanitizePortfolioPages(nextPlan.pages);
       repairsApplied.push("Compressed captions and removed forbidden external terms.");
     } else if (issue.code === "statement_too_generic") {
@@ -1268,7 +1523,7 @@ function repairPortfolioPlan(plan: PortfolioPlan, issues: PortfolioIssueClassifi
     } else if (issue.code === "duplicate_images") {
       nextPlan.pages = removeDuplicateImagePages(nextPlan.pages);
       repairsApplied.push("Removed duplicate image pages from the PortfolioPlan.");
-    } else if (issue.code === "small_full_page_image") {
+    } else if (issue.code === "small_full_page_image" || issue.code === "images_too_small_relative_to_page") {
       nextPlan.pages = nextPlan.pages.map((page) => (page.type === "work_full_page" || page.type === "single_work_full_page") && issue.sourcePath === page.imagePath ? { ...page, type: "image_with_caption_below", images: [{ role: "detail", path: page.imagePath, caption: page.caption }] } as PortfolioPlanPage : page);
       repairsApplied.push("Changed small full-page image to a detail-safe layout.");
     } else if (issue.code === "pdf_too_large") {
@@ -1300,17 +1555,21 @@ function splitDenseSeriesPages(pages: PortfolioPlanPage[]) {
 }
 
 function removeDuplicateImagePages(pages: PortfolioPlanPage[]) {
-  const seen = new Set<string>();
+  const uses = new Map<string, { total: number; nonOverview: number; fullPage: number }>();
   return pages.map((page) => {
     if (page.type === "work_full_page" || page.type === "single_work_full_page") {
-      if (seen.has(page.imagePath)) return null;
-      seen.add(page.imagePath);
+      const use = uses.get(page.imagePath) || { total: 0, nonOverview: 0, fullPage: 0 };
+      if (use.fullPage >= 1 || use.nonOverview >= 1 || use.total >= 2) return null;
+      uses.set(page.imagePath, { total: use.total + 1, nonOverview: use.nonOverview + 1, fullPage: use.fullPage + 1 });
       return page;
     }
     if ("images" in page) {
+      const isOverview = /overview|grid/.test(page.layoutStrategy || page.type);
       const images = page.images.filter((image) => {
-        if (seen.has(image.path)) return false;
-        seen.add(image.path);
+        const use = uses.get(image.path) || { total: 0, nonOverview: 0, fullPage: 0 };
+        const nextNonOverview = use.nonOverview + (isOverview ? 0 : 1);
+        if (use.total >= 2 || nextNonOverview > 1) return false;
+        uses.set(image.path, { total: use.total + 1, nonOverview: nextNonOverview, fullPage: use.fullPage });
         return true;
       });
       return images.length ? { ...page, images } : null;
@@ -1658,6 +1917,23 @@ function inferPortfolioConstraints(text: string): PortfolioConstraints {
   const exactPages = text.match(/(?:portfolio|pdf|document)[^\n.]{0,80}\b(\d{1,2})\s+pages?\b/i);
   const targetFileSizeMb = inferTargetFileSizeMb(text);
   const imageRange = text.match(/(\d{1,2})\s*[-–]\s*(\d{1,2})\s+images?/i);
+  const exactImageCount = text.match(/\b(?:upload|submit)[^\n.]{0,60}\b(\d{1,2})\s+(?:individual\s+)?images?\b/i);
+  const requiresImageUploadOnly = /(?:individual images? only|images? only|do not submit (?:a )?(?:portfolio )?pdf|no (?:portfolio )?pdf|separate image uploads? only)/i.test(text);
+  if (requiresImageUploadOnly) {
+    const imageCount = exactImageCount ? Number(exactImageCount[1]) : imageRange ? Number(imageRange[2]) : 10;
+    return {
+      targetPages: Math.min(10, Math.max(1, imageCount)),
+      minimumPages: 1,
+      maximumPages: Math.min(10, Math.max(1, imageCount)),
+      source: "opportunity",
+      reason: "Opportunity requires individual image upload rather than a formal portfolio PDF.",
+      targetFileSizeMb,
+      imageCountRange: imageRange ? { minimum: Number(imageRange[1]), maximum: Number(imageRange[2]) } : { minimum: Math.min(1, imageCount), maximum: imageCount },
+      requiresSinglePdf: false,
+      requiresCombinedPdf: false,
+      requiresImageUploadOnly: true
+    };
+  }
   if (explicitRange) {
     const minimumPages = Number(explicitRange[1]);
     const maximumPages = Number(explicitRange[2]);
@@ -1670,7 +1946,8 @@ function inferPortfolioConstraints(text: string): PortfolioConstraints {
       maxPages: maximumPages,
       targetFileSizeMb,
       requiresSinglePdf: /single pdf|one pdf/i.test(text),
-      requiresCombinedPdf: /combined pdf/i.test(text)
+      requiresCombinedPdf: /combined pdf/i.test(text),
+      requiresImageUploadOnly: false
     };
   }
   if (maxPages || exactPages) {
@@ -1684,7 +1961,8 @@ function inferPortfolioConstraints(text: string): PortfolioConstraints {
       maxPages: maximumPages,
       targetFileSizeMb,
       requiresSinglePdf: /single pdf|one pdf/i.test(text),
-      requiresCombinedPdf: /combined pdf/i.test(text)
+      requiresCombinedPdf: /combined pdf/i.test(text),
+      requiresImageUploadOnly: false
     };
   }
   return {
@@ -1696,9 +1974,10 @@ function inferPortfolioConstraints(text: string): PortfolioConstraints {
       ? `Opportunity specifies ${imageRange[1]}-${imageRange[2]} images but no page count; system keeps default formal portfolio length and adapts layout.`
       : "No explicit opportunity page limit; default to a formal portfolio around 20 pages.",
     targetFileSizeMb,
-    imageCountRange: imageRange ? { minimum: Number(imageRange[1]), maximum: Number(imageRange[2]) } : undefined,
+    imageCountRange: imageRange ? { minimum: Number(imageRange[1]), maximum: Number(imageRange[2]) } : exactImageCount ? { minimum: Number(exactImageCount[1]), maximum: Number(exactImageCount[1]) } : undefined,
     requiresSinglePdf: /single pdf|one pdf/i.test(text),
-    requiresCombinedPdf: /combined pdf/i.test(text)
+    requiresCombinedPdf: /combined pdf/i.test(text),
+    requiresImageUploadOnly: false
   };
 }
 
@@ -1738,7 +2017,7 @@ function isUsableCaptionField(value?: string) {
 
 function cleanExternalPortfolioText(value: string) {
   return value
-    .replace(/\b(?:unknown|N\/A|TBD|missing|placeholder|draft|mock|test|dimensions recorded in source material)\b/gi, "")
+    .replace(/\b(?:test preview|web preview|browser preview|unknown|N\/A|TBD|missing|placeholder|draft|mock|test|dimensions recorded in source material)\b/gi, "")
     .replace(/\s+([,.;:])/g, "$1")
     .replace(/[ \t]{2,}/g, " ")
     .trim();
@@ -1830,3 +2109,8 @@ function escapeHtml(value: string) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
+export const __portfolioTestHooks = {
+  inferPortfolioConstraints,
+  expandPlanTowardTarget
+};
