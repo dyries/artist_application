@@ -57,6 +57,7 @@ npm run dev
 ## Documents
 
 - [长期规则](docs/rules.md)：唯一的人类可读规则总表，覆盖申请、材料、审核、归档和安全边界。
+- 以下细分规则文档是当前规则的专题展开，不是旧版本；废弃的一次性脚本不再放在 `scripts/` 作为可运行入口。
 - [审计报告](docs/audit-report.md)：本轮重构发现的问题和已修复项。
 - [申请规则](docs/application_rules.md)：AI 自动化边界和用户审核节点。
 - [提交边界](docs/submission_boundary_rules.md)：internal/user/external 文件分层和对外禁用词。

@@ -1,5 +1,40 @@
 # Fix Log
 
+## 2026-06-02 00:30 CST
+
+### Scope
+
+- Removed obsolete one-off automation scripts from the active project tree.
+
+### Issues Found
+
+- Historical Goethe and weekly-opportunity Python scripts from 2026-05-25 and 2026-05-26 still lived in `scripts/` even though the current application flow now runs through Next API routes, `src/lib/projectAutomation.ts`, and `src/lib/package.ts`.
+- The scripts were not referenced by `package.json`, API routes, tests, or the current app UI, but their presence made the repository look as if old application-specific rules were still active.
+
+### Changes
+
+- Deleted the retired Goethe/weekly one-off Python scripts from `scripts/`.
+- Kept the rule documents because they are still linked from `README.md`, used by structure tests, and act as current policy references rather than dead code.
+- Kept `scripts/verify-project.mjs` and `scripts/backup-workspace.mjs` as the only maintained script entry points.
+- Clarified in `README.md` that specialized rule documents are current policy references, not old versions.
+
+### Files Changed
+
+- `docs/fix-log.md`
+- `README.md`
+- `scripts/finalize_goethe_review_package_2026_05_26.py`
+- `scripts/generate_goethe_portfolio_v2_2026_05_26.py`
+- `scripts/generate_weekly_artist_automation_2026_05_25.py`
+- `scripts/make_goethe_final_candidate_2026_05_26.py`
+- `scripts/prepare_goethe_eod_packages_2026_05_25.py`
+- `scripts/update_user_info_and_generate_portfolio_2026_05_25.py`
+
+### Verification
+
+```bash
+rg -n "finalize_goethe_review_package|generate_goethe_portfolio_v2|generate_weekly_artist_automation|make_goethe_final_candidate|prepare_goethe_eod_packages|update_user_info_and_generate_portfolio" --glob '!node_modules/**' --glob '!.next/**' --glob '!docs/fix-log.md'
+```
+
 ## 2026-06-02 00:00 CST
 
 ### Scope
