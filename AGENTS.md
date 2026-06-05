@@ -184,3 +184,23 @@ At the end of each task, report:
 - screenshots or visual verification notes if frontend changed
 
 If frontend changed, explicitly confirm that UI_ACCEPTANCE_CHECKLIST.md was checked.
+
+## Mandatory WORKLOG Rule
+
+Every task that changes code, configuration, tests, scripts, documentation, generated behavior, or project structure must append a new entry to the root `WORKLOG.md`.
+
+Rules:
+- Never overwrite old WORKLOG entries. Only append new entries.
+- Each entry must include:
+  - date/time
+  - task goal
+  - files changed
+  - what changed
+  - why it changed
+  - tests/checks run
+  - result: passed / failed / not run
+  - issues found
+  - next steps
+- If tests were not run, explain why.
+- A task is not complete until `WORKLOG.md` has been updated.
+- Before finishing any task, run `npm run check:worklog` when available.

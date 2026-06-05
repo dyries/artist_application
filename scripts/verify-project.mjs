@@ -16,7 +16,7 @@ const requiredFiles = [
   "docs/test_run_policy.md",
   "docs/automation.md",
   "docs/data-model.md",
-  "docs/fix-log.md",
+  "WORKLOG.md",
   "docs/status-lifecycle.md",
   "docs/maintenance.md",
   "src/lib/automationRules.ts",

@@ -1131,7 +1131,7 @@ function buildAutomaticPortfolioPlan(
     ...planned,
     pages: planned.pages.slice(0, constraints.source === "default" ? Math.min(22, constraints.maximumPages) : constraints.maximumPages)
   });
-  return repairCuratorialPlan(summarized, audit, layoutResearch).plan;
+  return stabilizePortfolioPlan(repairCuratorialPlan(summarized, audit, layoutResearch).plan, audit, layoutResearch);
 }
 
 function normalizePortfolioPlan(plan: PortfolioPlan, options: WritePackageOptions, constraints: PortfolioConstraints, layoutResearch: PortfolioLayoutResearch, audit: PortfolioSourceAudit): PortfolioPlan {
@@ -1162,7 +1162,7 @@ function normalizePortfolioPlan(plan: PortfolioPlan, options: WritePackageOption
       appliedPrinciples: appliedLayoutPrinciples(layoutResearch)
     }
   });
-  return repairCuratorialPlan(attachCuratorialSummary(normalized), audit, layoutResearch).plan;
+  return stabilizePortfolioPlan(repairCuratorialPlan(attachCuratorialSummary(normalized), audit, layoutResearch).plan, audit, layoutResearch);
 }
 
 function rankPortfolioWorks(
@@ -1337,27 +1337,28 @@ function primaryWorkPage(work: RankedPortfolioWork, group: PortfolioProjectGroup
 }
 
 function twoImagePage(group: PortfolioProjectGroup, layoutResearch: PortfolioLayoutResearch, imageAnalysisByPath: Map<string, PortfolioImageAnalysis>): PortfolioPlanPage {
+  const detailWorks = group.works.slice(1, 3);
   return {
     type: "two_image_spread",
-    workId: String(group.works[1]?.id || ""),
+    workId: String(detailWorks[0]?.id || ""),
     title: group.group,
-    year: group.works[1]?.year,
-    medium: group.works[1]?.medium,
-    dimensions: group.works[1]?.dimensions,
+    year: detailWorks[0]?.year,
+    medium: detailWorks[0]?.medium,
+    dimensions: detailWorks[0]?.dimensions,
     projectGroup: group.group,
     projectTitle: group.group,
     layoutStrategy: "two_image_spread",
     pageRole: "detail",
     layout: "detail_spread",
-    images: group.works.slice(1, 3).map((work) => planImage(work, recommendedRoleFor(work, imageAnalysisByPath, "detail"))),
-    caption: formatCaption(group.works[1]?.title || group.group, group.works[1]?.year, group.works[1]?.medium, group.works[1]?.dimensions),
+    images: detailWorks.map((work) => planImage(work, recommendedRoleFor(work, imageAnalysisByPath, "detail"))),
+    caption: formatCaption(detailWorks[0]?.title || group.group, detailWorks[0]?.year, detailWorks[0]?.medium, detailWorks[0]?.dimensions),
     curatorialReason: "Pairs related images to vary rhythm and avoid repeated single-image pages.",
     layoutReferenceReason: layoutResearch.derivedLayoutPrinciples.find((item) => /rhythm|spread/i.test(item)) || "Research principles use spreads and detail pairings for pacing."
   };
 }
 
 function contextPage(group: PortfolioProjectGroup, layoutResearch: PortfolioLayoutResearch, imageAnalysisByPath: Map<string, PortfolioImageAnalysis>): PortfolioPlanPage {
-  const work = group.works[2] || group.works[0];
+  const work = group.works[3] || group.works[2] || group.works[0];
   return {
     type: "text_image_context",
     workId: String(work.id || ""),
@@ -1461,7 +1462,7 @@ function expandPlanTowardTarget(plan: PortfolioPlan): PortfolioPlan {
   const usedExpansionKeys = new Set(pages.map(expansionKeyForPage).filter(Boolean));
   while (pages.length < desiredPageCount && pages.length < plan.portfolioConstraints.maximumPages && imagePages.length > 0) {
     const source = imagePages[nextIndex % imagePages.length];
-    const detail = detailPageFrom(source, nextIndex);
+    const detail = detailPageFrom(source);
     nextIndex += 1;
     if (!detail) {
       if (nextIndex > imagePages.length * 4) break;
@@ -1478,6 +1479,100 @@ function expandPlanTowardTarget(plan: PortfolioPlan): PortfolioPlan {
     if (nextIndex > 80) break;
   }
   return attachCuratorialSummary({ ...plan, pages: pages.slice(0, plan.portfolioConstraints.maximumPages) });
+}
+
+function stabilizePortfolioPlan(plan: PortfolioPlan, audit: PortfolioSourceAudit, layoutResearch: PortfolioLayoutResearch): PortfolioPlan {
+  let nextPlan = attachCuratorialSummary({
+    ...plan,
+    pages: sanitizePortfolioPages(plan.pages)
+  });
+  const availableWorks = audit.availableWorks.filter((work) => work.imagePath);
+  const rankedWorks = rankPortfolioWorks(extractWorksFromPlanWithImages(nextPlan).length ? extractWorksFromPlanWithImages(nextPlan) : availableWorks, []);
+  const groups = groupPortfolioWorks(rankedWorks.length ? rankedWorks : rankPortfolioWorks(availableWorks, []));
+  const availableGroups = groupPortfolioWorks(rankPortfolioWorks(availableWorks, []));
+
+  if (availableGroups.length >= 3 && nextPlan.curatorialSummary.projectGroupCount < 3) {
+    nextPlan = repairCuratorialPlan(nextPlan, audit, layoutResearch).plan;
+  }
+
+  nextPlan = ensureRequiredPortfolioLayoutRoles(nextPlan, availableGroups.length ? availableGroups : groups, layoutResearch);
+  nextPlan = expandPlanTowardTarget(nextPlan);
+  nextPlan = ensureRequiredPortfolioLayoutRoles(nextPlan, availableGroups.length ? availableGroups : groups, layoutResearch);
+  nextPlan = attachCuratorialSummary({ ...nextPlan, pages: trimPortfolioPagesPreservingRequiredRoles(nextPlan.pages, nextPlan.portfolioConstraints.maximumPages) });
+  if (nextPlan.pages.length < nextPlan.portfolioConstraints.minimumPages) {
+    nextPlan = expandPlanTowardTarget(nextPlan);
+  }
+  return attachCuratorialSummary({
+    ...nextPlan,
+    pages: trimPortfolioPagesPreservingRequiredRoles(nextPlan.pages, nextPlan.portfolioConstraints.maximumPages)
+  });
+}
+
+function ensureRequiredPortfolioLayoutRoles(plan: PortfolioPlan, groups: PortfolioProjectGroup[], layoutResearch: PortfolioLayoutResearch): PortfolioPlan {
+  const pages = [...plan.pages];
+  const imageAnalysisByPath = new Map<string, PortfolioImageAnalysis>();
+  const insertBeforeLists = () => {
+    const index = pages.findIndex((page) => page.type === "selected_works_list" || page.type === "contact" || page.type === "contact_page");
+    return index >= 0 ? index : pages.length;
+  };
+  const useCounts = imageUseCounts(pages);
+  const addPage = (page: PortfolioPlanPage | null) => {
+    if (!page || pages.length >= plan.portfolioConstraints.maximumPages) return;
+    pages.splice(insertBeforeLists(), 0, page);
+    for (const imagePath of portfolioPageImagePaths(page)) useCounts.set(imagePath, (useCounts.get(imagePath) || 0) + 1);
+  };
+  const preferredGroups = groups.length ? groups : groupPortfolioWorks(rankPortfolioWorks(extractWorksFromPlanWithImages(plan), []));
+  const firstGroup = preferredGroups[0];
+  const secondGroup = preferredGroups[1] || firstGroup;
+  const thirdGroup = preferredGroups[2] || secondGroup;
+
+  if (!pages.some((page) => page.type === "cover")) {
+    pages.unshift({ type: "cover", title: plan.artistName, subtitle: plan.portfolioTitle, year: plan.year, layoutStrategy: "cover", pageRole: "cover" });
+  }
+  if (!pages.some((page) => page.type === "short_statement")) {
+    pages.splice(Math.min(1, pages.length), 0, { type: "short_statement", text: concreteShortStatement(undefined, extractWorksFromPlan(plan)), layoutStrategy: "statement", pageRole: "statement" });
+  }
+  if (firstGroup && !pages.some((page) => page.type === "project_opener")) addPage(projectOpenerPage(firstGroup, layoutResearch));
+  if (!pages.some((page) => /grid/.test(layoutStrategyForPage(page)))) {
+    const group = freshImageGroup(preferredGroups, useCounts, 2) || firstGroup;
+    if (group) addPage(seriesOverviewPage(group, layoutResearch, imageAnalysisByPath));
+  }
+  if (!pages.some((page) => layoutStrategyForPage(page) === "single_work_full_page")) {
+    const group = freshImageGroup(preferredGroups, useCounts, 1) || secondGroup;
+    if (group?.works[0]) addPage(primaryWorkPage(group.works[0], group, layoutResearch, imageAnalysisByPath));
+  }
+  if (!pages.some((page) => layoutStrategyForPage(page) === "two_image_spread" || layoutStrategyForPage(page) === "detail_page")) {
+    const group = freshImageGroup(preferredGroups, useCounts, 2) || thirdGroup;
+    if (group?.works[1]) addPage(twoImagePage(group, layoutResearch, imageAnalysisByPath));
+  }
+  if (!pages.some((page) => layoutStrategyForPage(page) === "text_image_context")) {
+    const group = freshImageGroup(preferredGroups, useCounts, 1) || firstGroup;
+    if (group?.works[0]) addPage(contextPage(group, layoutResearch, imageAnalysisByPath));
+  }
+  if (!pages.some((page) => page.type === "selected_works_list")) {
+    pages.push({
+      type: "selected_works_list",
+      title: "Selected Works",
+      works: extractWorksFromPlanWithImages({ ...plan, pages }).slice(0, 18).map((work) => formatCaption(work.title, work.year, work.medium, work.dimensions)),
+      layoutStrategy: "selected_works_list",
+      pageRole: "list"
+    });
+  }
+  if (!pages.some((page) => page.type === "contact" || page.type === "contact_page")) {
+    pages.push({ type: "contact_page", title: "Contact", text: "", layoutStrategy: "contact_page", pageRole: "contact" });
+  }
+
+  return attachCuratorialSummary({ ...plan, pages });
+}
+
+function freshImageGroup(groups: PortfolioProjectGroup[], useCounts: Map<string, number>, minimumImages: number) {
+  return groups
+    .map((group) => ({
+      ...group,
+      works: group.works.filter((work) => work.imagePath && (useCounts.get(work.imagePath) || 0) === 0)
+    }))
+    .filter((group) => group.works.length >= minimumImages)
+    .sort((a, b) => b.works.length - a.works.length)[0];
 }
 
 function expansionKeyForPage(page: PortfolioPlanPage) {
@@ -1635,24 +1730,9 @@ function sanitizePortfolioPages(pages: PortfolioPlanPage[]) {
   });
 }
 
-function detailPageFrom(page: PortfolioPlanPage, index: number): PortfolioPlanPage | null {
+function detailPageFrom(page: PortfolioPlanPage): PortfolioPlanPage | null {
   if (page.type === "work_full_page" || page.type === "single_work_full_page") {
-    return {
-      type: "text_left_image_right",
-      workId: page.workId,
-      title: page.title,
-      year: page.year,
-      medium: page.medium,
-      dimensions: page.dimensions,
-      projectGroup: page.projectGroup,
-      projectTitle: page.projectTitle,
-      layoutStrategy: "text_image_context",
-      pageRole: "context",
-      layout: "text_image",
-      images: [{ role: index % 2 ? "detail" : "context", path: page.imagePath, caption: page.caption }],
-      text: conciseWorkNote(page.title, page.medium),
-      caption: compressCaption(page.caption || formatCaption(page.title, page.year, page.medium, page.dimensions))
-    };
+    return null;
   }
   if ("images" in page && page.images[0]?.path) {
     return {
@@ -1725,7 +1805,11 @@ function repairPortfolioPlan(plan: PortfolioPlan, issues: PortfolioIssueClassifi
       repairsApplied.push("Reused optimized copied images and re-rendered PDF.");
     }
   }
-  return { plan: nextPlan, issues, repairsApplied };
+  const stabilized = stabilizePortfolioPlan(nextPlan, sourceAudit, layoutResearch);
+  if (stabilized.pages.length !== nextPlan.pages.length || JSON.stringify(requiredPortfolioLayoutRoles(stabilized.pages)) !== JSON.stringify(requiredPortfolioLayoutRoles(nextPlan.pages))) {
+    repairsApplied.push("Restored required portfolio page roles and page count after repair.");
+  }
+  return { plan: stabilized, issues, repairsApplied };
 }
 
 function extractWorksFromPlan(plan: PortfolioPlan) {
@@ -1771,6 +1855,60 @@ function removeDuplicateImagePages(pages: PortfolioPlanPage[]) {
     }
     return page;
   }).filter((page): page is PortfolioPlanPage => Boolean(page));
+}
+
+function imageUseCounts(pages: PortfolioPlanPage[]) {
+  const counts = new Map<string, number>();
+  for (const page of pages) {
+    for (const imagePath of portfolioPageImagePaths(page)) counts.set(imagePath, (counts.get(imagePath) || 0) + 1);
+  }
+  return counts;
+}
+
+function portfolioPageImagePaths(page: PortfolioPlanPage) {
+  if (page.type === "work_full_page" || page.type === "single_work_full_page") return [page.imagePath].filter(Boolean);
+  if ("images" in page) return page.images.map((image) => image.path).filter(Boolean);
+  return [];
+}
+
+function requiredPortfolioLayoutRoles(pages: PortfolioPlanPage[]) {
+  return {
+    cover: pages.some((page) => page.type === "cover"),
+    statement: pages.some((page) => page.type === "short_statement"),
+    projectDividers: pages.some((page) => page.type === "project_opener"),
+    grids: pages.some((page) => /grid/.test(layoutStrategyForPage(page))),
+    singleImagePages: pages.some((page) => layoutStrategyForPage(page) === "single_work_full_page"),
+    detailPages: pages.some((page) => layoutStrategyForPage(page) === "detail_page" || layoutStrategyForPage(page) === "two_image_spread" || page.pageRole === "detail"),
+    mixedImageTextPages: pages.some((page) => layoutStrategyForPage(page) === "text_image_context"),
+    selectedWorks: pages.some((page) => page.type === "selected_works_list"),
+    contactCvSummary: pages.some((page) => page.type === "contact" || page.type === "contact_page")
+  };
+}
+
+function trimPortfolioPagesPreservingRequiredRoles(pages: PortfolioPlanPage[], maximumPages: number) {
+  if (pages.length <= maximumPages) return pages;
+  const keep = new Set<number>();
+  const roles = Object.keys(requiredPortfolioLayoutRoles(pages)) as Array<keyof ReturnType<typeof requiredPortfolioLayoutRoles>>;
+  for (const role of roles) {
+    const index = pages.findIndex((_, pageIndex) => !keep.has(pageIndex) && requiredPortfolioLayoutRoles([pages[pageIndex]])[role]);
+    if (index >= 0) keep.add(index);
+  }
+  const removablePriority = [
+    (page: PortfolioPlanPage) => page.type === "text_left_image_right" || page.type === "text_image_context",
+    (page: PortfolioPlanPage) => page.type === "two_image_detail_spread" || page.type === "two_image_spread",
+    (page: PortfolioPlanPage) => /grid/.test(layoutStrategyForPage(page)),
+    (page: PortfolioPlanPage) => page.type === "single_work_full_page" || page.type === "work_full_page",
+    (page: PortfolioPlanPage) => page.type === "project_opener"
+  ];
+  const next = [...pages];
+  for (const predicate of removablePriority) {
+    for (let index = next.length - 1; index >= 0 && next.length > maximumPages; index -= 1) {
+      const originalIndex = pages.indexOf(next[index]);
+      if (keep.has(originalIndex) || !predicate(next[index])) continue;
+      next.splice(index, 1);
+    }
+  }
+  return next.slice(0, maximumPages);
 }
 
 function buildPortfolioVariants(opportunity: Opportunity, plan: PortfolioPlan, pdfPath: string | null): PortfolioVariant[] {
@@ -2264,10 +2402,6 @@ function concreteShortStatement(profile: ArtistProfile | undefined, works: Array
   return cleanExternalPortfolioText(`Fanzhou Lu works through ${media || "painting, drawing, image research, and installation-oriented projects"} to examine how images carry authority, concealment, humor, and historical pressure. This portfolio brings together ${titles || "selected works"} as a concise view of a practice that transforms found political, religious, and cultural imagery through distortion, fragmentation, surface, and repetition. The works emphasize formal clarity while connecting material process with questions of visibility, censorship, belief, and public memory.`);
 }
 
-function conciseWorkNote(title: string, medium?: string) {
-  return cleanExternalPortfolioText(`${title} is presented here with a closer view of material, surface, and image structure${medium ? ` in ${medium}` : ""}.`);
-}
-
 function inferExistingPortfolioTitleOrder(
   materialSources: WritePackageOptions["materialSources"],
   workTitles: string[]
@@ -2307,5 +2441,9 @@ function escapeHtml(value: string) {
 
 export const __portfolioTestHooks = {
   inferPortfolioConstraints,
-  expandPlanTowardTarget
+  expandPlanTowardTarget,
+  repairPortfolioPlan,
+  stabilizePortfolioPlan,
+  requiredPortfolioLayoutRoles,
+  attachCuratorialSummary
 };

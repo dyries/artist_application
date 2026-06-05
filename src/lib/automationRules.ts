@@ -17,7 +17,7 @@ export const automationRuleText = {
   automationBoundary:
     "Users may choose Codex automation, project-internal external API automation, or both. Codex automation runs inside Codex and must not depend on project external API keys. Project-internal external API automation uses providers configured in repository-root .env.local when available. Both paths must respect review, confirmation, and safety boundaries.",
   maintenance:
-    "When workflow, package, material, automation, or safety rules change, update docs/rules.md and this shared machine-rule module. Remove obsolete wording or behavior unless it is intentionally kept for compatibility. Record bug fixes, optimizations, and validation results in docs/fix-log.md.",
+    "When workflow, package, material, automation, or safety rules change, update docs/rules.md and this shared machine-rule module. Remove obsolete wording or behavior unless it is intentionally kept for compatibility. Record code changes, inspections, bug fixes, optimizations, and validation results in WORKLOG.md.",
   userReviewEdits:
     "User-facing review files and package files are editable. After user edits, treat the edited file as the new source of truth and update downstream final files, database records, reports, and archive indexes. If a Chinese review edit affects an English final submission, translate the content intent into English; do not put review translations into final-only files.",
   manualOpportunityLinks:
