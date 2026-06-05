@@ -272,6 +272,7 @@ function runVisualGate(input: PortfolioRenderInput & { htmlPath: string; pdfPath
   const smallImagePages = findSmallImagePages(input.plan, input.copiedImages);
   const captionIssues = findCaptionIssues(input.plan);
   const webPreviewLanguageHits = aestheticDiagnostics.forbiddenExternalWords.filter((word) => /preview|mock|draft|placeholder|test/.test(word));
+  const mandatoryImageIssues = findMandatoryImageSelectionIssues(input.plan);
 
   for (const issue of input.preflightIssues) {
     if (/references no formal image paths|no structured|no image-bearing/i.test(issue)) blockingIssues.push(classify("no_usable_images", issue, "blocking"));
@@ -309,6 +310,7 @@ function runVisualGate(input: PortfolioRenderInput & { htmlPath: string; pdfPath
   const missingReferencedImages = plannedImagePaths.filter((imagePath) => !copiedSourcePaths.has(imagePath));
   if (missingReferencedImages.length) blockingIssues.push(classify("missing_referenced_image", `Portfolio references ${missingReferencedImages.length} image file(s) that were not copied/readable.`, "blocking"));
   if (duplicateImages.length) autoFixableIssues.push(classify("duplicate_images", `Portfolio overuses ${new Set(duplicateImages).size} image file(s) beyond overview-to-detail rhythm.`, "auto_fixable"));
+  blockingIssues.push(...mandatoryImageIssues.map((issue) => classify(issue.code, issue.message, "blocking")));
   for (const page of input.plan.pages) {
     if ("caption" in page && page.caption && page.caption.split(/\s+/).filter(Boolean).length > 35) autoFixableIssues.push(classify("caption_too_long", `Caption is longer than 35 words on page ${input.plan.pages.indexOf(page) + 1}.`, "auto_fixable"));
     if ((page.type === "series_grid" || page.type === "series_grid_large" || page.type === "series_overview_grid" || page.type === "image_research_grid") && page.images.length > 4) autoFixableIssues.push(classify("series_grid_too_dense", `Series grid has ${page.images.length} images and should be split into larger pages.`, "auto_fixable"));
@@ -382,10 +384,52 @@ function runVisualGate(input: PortfolioRenderInput & { htmlPath: string; pdfPath
     warnings,
     suggestedRepairs,
     copiedImages: input.copiedImages,
+    mandatoryImageSelectionIssues: mandatoryImageIssues,
     aestheticDiagnostics,
     domCheck,
     passed: blockingIssues.length === 0 && autoFixableIssues.length === 0
   };
+}
+
+function findMandatoryImageSelectionIssues(plan: PortfolioPlan) {
+  const issues: Array<{ code: string; message: string }> = [];
+  plan.pages.forEach((page, index) => {
+    if (page.type === "work_full_page" || page.type === "single_work_full_page") {
+      if (supportOnlyRole(page.imageRole) || supportOnlyImagePath(page.imagePath)) {
+        issues.push({
+          code: /detail|crop|process|install|temporary|partial/i.test(String(page.imageRole || page.imagePath)) ? "detail_process_installation_on_single_work_full_page" : "primary_page_uses_incomplete_image",
+          message: `Page ${index + 1} uses an incomplete/support-only image on single_work_full_page: ${page.imagePath}`
+        });
+      }
+    }
+    if ("images" in page) {
+      const lead = page.images[0];
+      if (lead && (page.pageRole === "primary_work" || page.pageRole === "overview" || /overview|primary/.test(page.layoutStrategy || page.type)) && (supportOnlyRole(lead.role) || supportOnlyImagePath(lead.path))) {
+        issues.push({
+          code: "support_only_image_used_as_primary",
+          message: `Page ${index + 1} uses support-only image as lead project/overview image: ${lead.path}`
+        });
+      }
+      if ((page.type === "series_overview_grid" || page.type === "series_grid" || page.type === "series_grid_large") && page.images.length > 1) {
+        const supportCount = page.images.filter((image) => supportOnlyRole(image.role) || supportOnlyImagePath(image.path)).length;
+        if (supportCount > Math.floor(page.images.length / 2)) {
+          issues.push({
+            code: "overview_grid_uses_too_many_incomplete_images",
+            message: `Overview grid on page ${index + 1} is dominated by incomplete/support-only images.`
+          });
+        }
+      }
+    }
+  });
+  return issues;
+}
+
+function supportOnlyRole(role?: string) {
+  return Boolean(role && /detail|installation_view|process|archive_reference|temporary|cropped|partial|weak_candidate|excluded/.test(role));
+}
+
+function supportOnlyImagePath(imagePath: string) {
+  return /detail|closeup|close-up|crop|cropped|process|install|installation|studio|temp|temporary|screenshot|screen|archive|reference|packing|backup|partial/i.test(path.basename(imagePath));
 }
 
 function buildAestheticDiagnostics(plan: PortfolioPlan, html: string, copiedImages: CopiedPortfolioImage[]): PortfolioVisualGateResult["aestheticDiagnostics"] {

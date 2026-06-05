@@ -82,6 +82,17 @@
 - 作品尺寸必须以 cm 为单位，不能把图片像素尺寸当作作品尺寸展示。
 - 展览如果要求真实作品、运输、安装或当前可用作品，不能默认旧作品还在手里；需要先让用户确认哪些作品可以参展。
 
+## Figma Application Package Design
+
+- 当用户为申请包 UI、最终提交包审核页、申请包展示页或相关前端体验提供 Figma 文件/Frame/Node 时，必须用 Figma skill 按精确节点实现，不能凭印象重做。
+- 编码前必须先对精确节点或 frame 调用 `get_design_context`；如果返回被截断，先用 `get_metadata` 理清文件结构，再只对必要节点重新调用 `get_design_context`。
+- 编码前必须对精确 variant 调用 `get_screenshot`，把截图作为视觉参照。
+- 实现时必须复用项目已有 design system components、tokens、utilities、routing、state 和 data-fetch patterns，不要创建平行设计系统、随机组件体系或新的 icon package。
+- 必须尽量匹配 Figma 的 spacing、layout、hierarchy、responsive behavior，并同时适配 desktop 和 mobile。
+- 如果 Figma 返回 localhost image 或 SVG source，直接使用这些来源，不要创建 placeholder。
+- 完成后必须用 Playwright 对照 Figma reference 检查外观和行为，并根据差异迭代。
+- Figma 设计执行不能改变产品审核边界：默认仍只有“选择机会”和“最终提交包确认”两个用户审核节点。
+
 ## Final Submission Archive
 
 - 最终提交或明确标记为最终版本后，必须先把最终提交版复制到 `generated/final-submissions/YYYY-MM-DD/`。

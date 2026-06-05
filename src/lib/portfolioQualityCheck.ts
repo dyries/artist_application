@@ -30,7 +30,7 @@ export function checkPortfolioPreparation(input: PortfolioQualityInput) {
   };
 }
 
-export function checkPortfolioOutput(input: Pick<PortfolioQualityInput, "portfolioText" | "selectedWorks" | "portfolioPlan">) {
+export function checkPortfolioOutput(input: Pick<PortfolioQualityInput, "portfolioText" | "selectedWorks" | "portfolioPlan" | "portfolioSourceAudit">) {
   const issues: string[] = [];
   const warnings: string[] = [];
   const cliches = findAiCliches(input.portfolioText);
@@ -64,8 +64,57 @@ export function checkPortfolioOutput(input: Pick<PortfolioQualityInput, "portfol
   if (cliches.length > 0) {
     warnings.push(`Portfolio statement has AI-like abstract phrases: ${cliches.join(", ")}; auto-repair should rewrite with concrete materials and display context.`);
   }
+  const mandatoryImageIssues = checkMandatoryPortfolioImageSelection(input.portfolioPlan, input.portfolioSourceAudit);
+  issues.push(...mandatoryImageIssues);
 
   return { ok: issues.length === 0, issues, warnings };
+}
+
+function checkMandatoryPortfolioImageSelection(plan?: PortfolioPlan, audit?: PortfolioSourceAudit) {
+  if (!plan) return [];
+  const issues: string[] = [];
+  const supportOnlyPaths = new Set((audit?.supportOnlyImages || []).map((image) => image.path));
+  const analysisByPath = new Map((audit?.imageAnalyses || []).map((analysis) => [analysis.path, analysis]));
+  const isSupportOnly = (imagePath: string, role?: string) => {
+    const analysis = analysisByPath.get(imagePath);
+    return supportOnlyPaths.has(imagePath)
+      || Boolean(analysis?.supportOnly || analysis?.cropRisk || analysis?.partialImageRisk || analysis?.temporaryPhotoRisk)
+      || /detail|installation_view|process|archive_reference|temporary|cropped|partial|weak_candidate|excluded/.test(role || "")
+      || /detail|closeup|close-up|crop|cropped|process|install|installation|studio|temp|temporary|screenshot|screen|archive|reference|packing|backup|partial/i.test(imagePath.split(/[\\/]/).pop() || imagePath);
+  };
+  plan.pages.forEach((page, index) => {
+    if (page.type === "work_full_page" || page.type === "single_work_full_page") {
+      if (isSupportOnly(page.imagePath, page.imageRole)) issues.push(`Portfolio mandatory image gate failed: primary page uses incomplete/support-only image on page ${index + 1}: ${page.imagePath}`);
+    }
+    if ("images" in page) {
+      const lead = page.images[0];
+      if (lead && (page.pageRole === "overview" || page.pageRole === "primary_work" || /overview|primary/.test(page.layoutStrategy || page.type)) && isSupportOnly(lead.path, lead.role)) {
+        issues.push(`Portfolio mandatory image gate failed: support-only image used as primary/overview lead on page ${index + 1}: ${lead.path}`);
+      }
+    }
+  });
+  for (const group of audit?.projectGroupPrimaryImages || []) {
+    if (group.completeImageAvailable && !group.primaryImagePath) {
+      issues.push(`Portfolio mandatory image gate failed: complete image exists but was not selected as primary for ${group.projectGroup}.`);
+    }
+    if (!group.completeImageAvailable && group.qualityBlocked) {
+      issues.push(`Portfolio mandatory image gate failed: no complete artwork image exists for ${group.projectGroup}; package must remain quality_blocked unless context-only material is explicitly accepted.`);
+    }
+  }
+  const listedWorks = plan.pages.flatMap((page) => page.type === "selected_works_list" ? page.works || [] : []);
+  const representedTitles = new Set((audit?.selectedImages || [])
+    .filter((image) => image.use === "primary" || image.use === "overview")
+    .filter((image) => !isSupportOnly(image.path, image.assignedRole))
+    .map((image) => normalizeForListMatch(image.title || "")));
+  if (listedWorks.length >= 6 && representedTitles.size > 0) {
+    const unrepresented = listedWorks.filter((work) => ![...representedTitles].some((title) => normalizeForListMatch(work).includes(title) || title.includes(normalizeForListMatch(work).slice(0, 18))));
+    if (unrepresented.length / listedWorks.length > 0.35) issues.push("Portfolio mandatory image gate failed: selected works list contains many works not visually represented by complete artwork images.");
+  }
+  return issues;
+}
+
+function normalizeForListMatch(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/gi, " ").trim();
 }
 
 function countPortfolioPlanImages(plan: PortfolioPlan) {

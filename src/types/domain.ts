@@ -69,6 +69,8 @@ export type Work = {
 
 export type PortfolioImageRole =
   | "primary"
+  | "complete_work_image"
+  | "primary_documentation"
   | "overview"
   | "detail"
   | "installation"
@@ -78,6 +80,9 @@ export type PortfolioImageRole =
   | "archive_reference"
   | "reverse"
   | "reference"
+  | "temporary"
+  | "cropped"
+  | "partial"
   | "weak_candidate"
   | "excluded";
 
@@ -122,6 +127,16 @@ export type PortfolioImageAnalysis = {
   fullPageSuitability?: "strong" | "usable" | "detail_only" | "exclude";
   qualityRisks: string[];
   recommendedRoles: PortfolioImageRole[];
+  assignedRole?: PortfolioImageRole;
+  recommendedRole?: PortfolioImageRole;
+  completeWorkScore?: number;
+  primaryCandidate?: boolean;
+  cropRisk?: boolean;
+  partialImageRisk?: boolean;
+  temporaryPhotoRisk?: boolean;
+  supportOnly?: boolean;
+  rejectionReason?: string;
+  selectionReason?: string;
 };
 
 export type PortfolioPageRole = "cover" | "statement" | "project_opener" | "overview" | "primary_work" | "detail" | "installation" | "context" | "list" | "contact";
@@ -261,6 +276,39 @@ export type PortfolioSourceAudit = {
   portfolioConstraints?: PortfolioConstraints;
   materialsActuallyUsed: string[];
   imageAnalyses?: PortfolioImageAnalysis[];
+  allAvailableImages?: Array<PortfolioAuditedImage>;
+  selectedImages?: Array<PortfolioAuditedImage & { page?: number; pageType?: string; use?: "primary" | "overview" | "supporting" | "context" }>;
+  excludedImages?: Array<PortfolioAuditedImage>;
+  projectGroupPrimaryImages?: Array<{
+    projectGroup: string;
+    primaryImagePath?: string;
+    completeImageAvailable: boolean;
+    qualityBlocked?: boolean;
+    reason?: string;
+  }>;
+  supportOnlyImages?: Array<{
+    path: string;
+    projectGroup?: string;
+    assignedRole?: PortfolioImageRole;
+    reason: string;
+  }>;
+};
+
+export type PortfolioAuditedImage = {
+  path: string;
+  projectGroup?: string;
+  title?: string;
+  dimensions?: string;
+  width?: number;
+  height?: number;
+  assignedRole?: PortfolioImageRole;
+  recommendedRole?: PortfolioImageRole;
+  completeWorkScore?: number;
+  qualityScore?: number;
+  risks?: string[];
+  selectedReason?: string;
+  excludedReason?: string;
+  supportOnly?: boolean;
 };
 
 export type PortfolioPlan = {
@@ -371,6 +419,10 @@ export type PortfolioVisualGateResult = {
     sizeBytes: number;
     optimized: boolean;
     tooSmallForFullPage: boolean;
+  }>;
+  mandatoryImageSelectionIssues?: Array<{
+    code: string;
+    message: string;
   }>;
   aestheticDiagnostics: {
     whiteOnlyPageCount: number;

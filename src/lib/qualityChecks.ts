@@ -50,7 +50,8 @@ export function runApplicationQualityChecks(input: ApplicationQualityInput) {
   const portfolioOutput = checkPortfolioOutput({
     portfolioText: input.portfolioText,
     selectedWorks: input.selectedWorks,
-    portfolioPlan: input.portfolioPlan
+    portfolioPlan: input.portfolioPlan,
+    portfolioSourceAudit: input.portfolioSourceAudit
   });
   if (!portfolioOutput.ok) internalIssues.push(...portfolioOutput.issues);
 

@@ -6,3 +6,5 @@
 - User-facing review material is Chinese-first.
 - English formal material is generated only when the opportunity requires English and must have a Chinese review summary.
 - Public-facing text must describe concrete works, materials, sources, places, archives, research actions, making methods, display methods, and final outputs.
+- When a specific Figma node/frame is provided for application package UI or final-review package design, implementation must use the Figma skill: fetch the exact design context, recover truncated context with metadata and targeted refetches, capture the exact variant screenshot before coding, reuse existing project components/tokens, preserve routing/state/data patterns, support desktop and mobile, use returned localhost image/SVG assets directly, and validate against the Figma reference with Playwright before completion.
+- Figma implementation does not add review nodes; the only default user decisions remain opportunity selection and final submission package approval.

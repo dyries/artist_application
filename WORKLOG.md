@@ -2083,3 +2083,225 @@ Known limitations:
 ### Next Steps
 
 - Investigate the pre-existing `tests/package-behavior.test.mjs` pending event-loop behavior separately if full-suite clean exit is required.
+
+## 2026-06-05 19:55 CST Portfolio mock generation quality review
+
+### Task Goal
+
+- Run a safe local mock portfolio generation for visual quality review without submitting any application or writing real application state.
+
+### Files Changed
+
+- `scripts/mock-portfolio-quality-review.mjs`
+- `generated/test-runs/portfolio-quality-review/`
+- `artist-application-portfolio-quality-review.md`
+- `WORKLOG.md`
+
+### What Changed
+
+- Added a dedicated local mock portfolio quality-review runner that creates an isolated workspace under `generated/test-runs/portfolio-quality-review/_mock-workspace`.
+- Generated a test application package through the existing `writeApplicationPackage` portfolio path using `runMode: "test"`.
+- Wrote `portfolio.pdf`, `portfolio.html`, internal portfolio plan/visual-check/auto-repair logs, PDF page screenshots, and a portfolio contact sheet under `generated/test-runs/portfolio-quality-review/`.
+- Added a human-style QA report at `artist-application-portfolio-quality-review.md`.
+
+### Why It Changed
+
+- The portfolio PDF is the primary external-facing artifact, and this task required direct local visual inspection rather than only unit-test execution.
+
+### Tests/Checks Run
+
+- `node --experimental-strip-types --loader ./tests/ts-esm-loader.mjs scripts/mock-portfolio-quality-review.mjs`
+- `npm run lint`
+- `npm run typecheck`
+- `npm test`
+- `npm run test:portfolio`
+- `npm run test:structure`
+- `npm run check`
+- `npm run build`
+- `npm run check:worklog`
+
+### Result
+
+- Passed: mock portfolio generation completed in isolated `generated/test-runs/portfolio-quality-review/` output.
+- Passed: `npm run lint`
+- Passed: `npm run typecheck`
+- Passed: `npm test` completed 22 tests successfully.
+- Passed: `npm run test:portfolio` completed 9 tests successfully.
+- Passed: `npm run test:structure`
+- Passed: `npm run check`
+- Passed: `npm run build`
+- Passed: `npm run check:worklog`
+
+### Issues Found
+
+- Generated package status is `quality_blocked`.
+- The portfolio visual gate reports unresolved duplicate image overuse after three auto-repair rounds.
+- The mock image set is visually homogeneous and suitable for layout QA only, not real submission content.
+
+### Next Steps
+
+- Fix duplicate-image repair so restored required pages prefer unused alternate images before reusing any source image beyond the allowed overview/detail rhythm.
+
+## 2026-06-05 20:16 CST Real artwork portfolio review generation
+
+### Task Goal
+
+- Replace the synthetic mock portfolio images with the artist's real local artwork images and regenerate the test-run portfolio for direct visual review.
+
+### Files Changed
+
+- `scripts/real-portfolio-quality-review.mjs`
+- `generated/test-runs/portfolio-quality-review/`
+- `artist-application-portfolio-quality-review.md`
+- `WORKLOG.md`
+
+### What Changed
+
+- Added a real-artwork portfolio quality-review runner that selects readable images from `artist-assets/inbox/works/` project folders.
+- Built a structured 20-page portfolio plan using five project groups: Iconoclasm, What are you looking for, Measurement 2.0, Mausoleum 2024, and Love and Hope.
+- Regenerated `portfolio.pdf`, `portfolio.html`, page screenshots, contact sheet, internal plan, visual check, and auto-repair log under `generated/test-runs/portfolio-quality-review/`.
+- Added test-run PDF image optimization after generation so the final PDF fits under the 20 MB external file gate without modifying original artwork files.
+- Updated the QA report to reflect the real-artwork portfolio result.
+
+### Why It Changed
+
+- The user wanted the portfolio preview to include their actual artworks instead of synthetic mock images.
+
+### Tests/Checks Run
+
+- `node --experimental-strip-types --loader ./tests/ts-esm-loader.mjs scripts/real-portfolio-quality-review.mjs`
+- `npm run lint`
+- `npm run check:worklog`
+
+### Result
+
+- Passed: real-artwork portfolio generation completed.
+- Passed: package status is `package_ready_for_final_review`.
+- Passed: visual gate, file quality gate, and 20 page screenshot export.
+- Passed: `npm run lint`
+- Passed: `npm run check:worklog`
+
+### Issues Found
+
+- The `works` database table is empty, so captions are inferred from image folders and project names rather than verified artwork metadata.
+- Default package image compression produced a PDF over 20 MB before the test-run optimization pass.
+
+### Next Steps
+
+- Populate the `works` database with verified artwork metadata and preferred portfolio image paths.
+
+## 2026-06-05 22:01 CST Mandatory complete artwork image selection enforcement
+
+### Task Goal
+
+- Make portfolio generation enforce complete artwork documentation as primary images, with detail/crop/process/installation/archive/reference/temporary images downgraded to support-only unless no complete image exists.
+
+### Files Changed
+
+- `AGENTS.md`
+- `src/types/domain.ts`
+- `src/lib/schemas.ts`
+- `src/lib/portfolioImageAnalysis.ts`
+- `src/lib/package.ts`
+- `src/lib/portfolioRenderer.ts`
+- `src/lib/portfolioQualityCheck.ts`
+- `src/lib/qualityChecks.ts`
+- `tests/portfolio-planning-runner.mjs`
+- `tests/portfolio-quality-runner.mjs`
+- `scripts/mock-portfolio-quality-review.mjs`
+- `artist-application-portfolio-quality-review.md`
+- `generated/test-runs/portfolio-quality-review/`
+- `WORKLOG.md`
+
+### What Changed
+
+- Appended the mandatory portfolio image selection rule to `AGENTS.md`.
+- Extended portfolio image roles and schemas with `complete_work_image`, `primary_documentation`, `temporary`, `cropped`, `partial`, and mandatory analysis/audit fields.
+- Added image analysis fields for assigned/recommended roles, complete-work score, primary candidacy, crop/partial/temporary risks, support-only status, and selection/rejection reasons.
+- Changed portfolio planning and repair so single-work full pages and primary project/overview leads prefer complete/primary documentation images and replace support-only images when complete images exist.
+- Added source audit records for all available images, selected images, excluded images, support-only downgrades, project-group primary image paths, risks, and selection/exclusion reasons.
+- Added hard portfolio quality gates for support-only primary usage, detail/process/installation on single-work full pages, complete image exists but not primary, incomplete overview grids, and selected works list overreach.
+- Added metadata/score caching to avoid repeated sharp subprocess metadata reads during quality gates and package tests.
+- Updated the mock portfolio quality-review runner to include support-only fixture images, regenerate the portfolio review output, and write a QA report with primary paths and excluded/supporting image details.
+
+### Why It Changed
+
+- Portfolio output must not use cropped/detail/process/installation/context images as main work representations when complete artwork photos exist.
+- The rule needs to be enforced by code, audit files, renderer gates, quality checks, and tests rather than relying on prompt wording or manual review.
+
+### Tests/Checks Run
+
+- `node --experimental-strip-types --loader ./tests/ts-esm-loader.mjs scripts/mock-portfolio-quality-review.mjs`
+- `npm run lint`
+- `npm run typecheck`
+- `npm test`
+- `npm run test:portfolio`
+- `npm run test:structure`
+- `npm run build`
+- `npm run check`
+
+### Result
+
+- Passed: mock portfolio generation completed in isolated `generated/test-runs/portfolio-quality-review/`.
+- Passed: generated package status is `package_ready_for_final_review`.
+- Passed: generated portfolio has 20 pages and 20 page screenshots.
+- Passed: `npm run lint`.
+- Passed: `npm run typecheck`.
+- Passed: `npm test` completed 22 tests successfully.
+- Passed: `npm run test:portfolio` completed 9 tests successfully.
+- Passed: `npm run test:structure`.
+- Passed: `npm run build`.
+- Passed: `npm run check`.
+
+### Issues Found
+
+- Initial path heuristics incorrectly matched the temporary workspace directory name `artist-studio-fixture` as a studio/process photo signal; fixed by matching support-only terms against image filenames.
+- High-resolution synthetic test images had very small file sizes and were initially under-scored; fixed so file size is recorded as a risk without overriding complete artwork candidacy when resolution and filename signals are strong.
+- Mandatory primary insertion initially over-expanded short portfolios and duplicated primary images; fixed by limiting enforcement to core project groups in the plan, preserving preferred page ranges, and replacing/removing duplicate context images.
+
+### Next Steps
+
+- Populate real artwork records with verified metadata and explicit preferred complete image paths so audit reasons can be more specific than filename/path heuristics.
+
+## 2026-06-06 06:24 CST Figma application package design workflow rule
+
+### Task Goal
+
+- Persist the user's requirement that application package UI/final-review package design must be implemented from exact Figma references with Figma skill context, screenshot capture, repo pattern reuse, and Playwright validation.
+
+### Files Changed
+
+- `AGENTS.md`
+- `docs/application_rules.md`
+- `docs/rules.md`
+- `src/lib/automationRules.ts`
+- `WORKLOG.md`
+
+### What Changed
+
+- Added a project-level Figma implementation rule for application package and final-review package UI work.
+- Added application-rule and long-term-rule documentation requiring exact `get_design_context`, truncated-context recovery via `get_metadata`, exact variant `get_screenshot`, existing token/component reuse, desktop/mobile responsiveness, direct use of Figma-returned localhost/SVG assets, and Playwright comparison.
+- Added the same rule to machine-readable automation instructions and prompt preferences.
+- Clarified that Figma implementation must not introduce extra user review nodes beyond opportunity selection and final submission package approval.
+
+### Why It Changed
+
+- Future application package design work needs a durable implementation workflow instead of relying on chat-only instructions.
+- The rule must align with the project's two-node review model and existing design-system constraints.
+
+### Tests/Checks Run
+
+- `npm run typecheck`
+
+### Result
+
+- Passed: `npm run typecheck`.
+
+### Issues Found
+
+- No Figma file, frame, or node URL was provided in this task, so no actual Figma implementation or Playwright visual comparison was possible.
+- Existing unrelated worktree modifications were present before this task and were left untouched.
+
+### Next Steps
+
+- When a concrete Figma URL/node is provided, use the Figma skill workflow and validate the implemented UI with Playwright against the exact reference.

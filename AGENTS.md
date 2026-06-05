@@ -82,6 +82,25 @@ The UI should feel closer to:
 - artist portfolio management system
 - premium creative studio back office
 
+## Figma implementation rule for application package design
+
+When a task provides a Figma file, frame, or node for application package UI or final-review package design, implement from the exact Figma reference using the Figma skill.
+
+Required workflow:
+
+- Start with `get_design_context` for the exact node or frame.
+- If the response is truncated, use `get_metadata` to map the file and then re-fetch only the needed nodes with `get_design_context`.
+- Run `get_screenshot` for the exact variant before coding.
+- Reuse existing design system components and tokens.
+- Translate Figma output into this repo's utilities and component patterns instead of creating a parallel system.
+- Match spacing, layout, hierarchy, and responsive behavior closely.
+- Respect the repo's routing, state, and data-fetch patterns.
+- Make the page responsive on desktop and mobile.
+- If Figma returns localhost image or SVG sources, use them directly and do not create placeholders or add new icon packages.
+- Validate the finished UI against the Figma reference with Playwright and iterate until the look and behavior match.
+
+This rule does not add user review steps. The product still keeps only opportunity selection and final submission package approval as default user review nodes.
+
 ## PDF / portfolio rules
 
 The portfolio PDF is the primary external-facing artifact.
@@ -204,3 +223,16 @@ Rules:
 - If tests were not run, explain why.
 - A task is not complete until `WORKLOG.md` has been updated.
 - Before finishing any task, run `npm run check:worklog` when available.
+
+## Mandatory Portfolio Image Selection Rule
+
+Portfolio generation must prioritize complete artwork documentation.
+
+Rules:
+
+* Complete artwork images must be used as primary portfolio images whenever available.
+* Detail, cropped, process, installation, archive, reference, temporary, packing, studio, screenshot, or partial images may only be used as supporting/context images.
+* Supporting images must not be used for `single_work_full_page`, primary project presentation, or main selected-work representation when a complete image exists.
+* If a complete image exists but the system selects a partial/supporting image as primary, that is a quality failure.
+* If no complete image exists for a required project group, record it in internal notes and mark the portfolio as `quality_blocked` unless the opportunity explicitly accepts documentation/context-only material.
+* This rule must be enforced in code, quality gates, tests, and generated portfolio audit files.

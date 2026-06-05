@@ -20,6 +20,8 @@ const opportunityStatusSchema = z.enum([
 
 const portfolioImageRoleSchema = z.enum([
   "primary",
+  "complete_work_image",
+  "primary_documentation",
   "overview",
   "detail",
   "installation",
@@ -29,6 +31,9 @@ const portfolioImageRoleSchema = z.enum([
   "archive_reference",
   "reverse",
   "reference",
+  "temporary",
+  "cropped",
+  "partial",
   "weak_candidate",
   "excluded"
 ]);
@@ -105,8 +110,18 @@ const portfolioImageAnalysisSchema = z.object({
   averageBrightness: z.number().min(0).max(1),
   tooSmallForFullPage: z.boolean(),
   qualityRisks: z.array(z.string()).default([]),
-  recommendedRoles: z.array(portfolioImageRoleSchema).default([])
-}).strict();
+  recommendedRoles: z.array(portfolioImageRoleSchema).default([]),
+  assignedRole: portfolioImageRoleSchema.optional(),
+  recommendedRole: portfolioImageRoleSchema.optional(),
+  completeWorkScore: z.number().min(0).max(100).optional(),
+  primaryCandidate: z.boolean().optional(),
+  cropRisk: z.boolean().optional(),
+  partialImageRisk: z.boolean().optional(),
+  temporaryPhotoRisk: z.boolean().optional(),
+  supportOnly: z.boolean().optional(),
+  rejectionReason: z.string().optional(),
+  selectionReason: z.string().optional()
+}).passthrough();
 
 const portfolioPageMetadataSchema = z.object({
   projectGroup: z.string().optional(),
@@ -243,7 +258,45 @@ const portfolioSourceAuditSchema = z.object({
   }).passthrough().default({}),
   portfolioConstraints: portfolioConstraintsSchema.optional(),
   materialsActuallyUsed: z.array(z.string()).default([]),
-  imageAnalyses: z.array(portfolioImageAnalysisSchema).optional()
+  imageAnalyses: z.array(portfolioImageAnalysisSchema).optional(),
+  allAvailableImages: z.array(z.object({
+    path: z.string(),
+    projectGroup: z.string().optional(),
+    title: z.string().optional(),
+    dimensions: z.string().optional(),
+    width: z.number().optional(),
+    height: z.number().optional(),
+    assignedRole: portfolioImageRoleSchema.optional(),
+    recommendedRole: portfolioImageRoleSchema.optional(),
+    completeWorkScore: z.number().optional(),
+    qualityScore: z.number().optional(),
+    risks: z.array(z.string()).optional(),
+    selectedReason: z.string().optional(),
+    excludedReason: z.string().optional(),
+    supportOnly: z.boolean().optional()
+  }).passthrough()).optional(),
+  selectedImages: z.array(z.object({
+    path: z.string(),
+    page: z.number().optional(),
+    pageType: z.string().optional(),
+    use: z.enum(["primary", "overview", "supporting", "context"]).optional()
+  }).passthrough()).optional(),
+  excludedImages: z.array(z.object({
+    path: z.string()
+  }).passthrough()).optional(),
+  projectGroupPrimaryImages: z.array(z.object({
+    projectGroup: z.string(),
+    primaryImagePath: z.string().optional(),
+    completeImageAvailable: z.boolean(),
+    qualityBlocked: z.boolean().optional(),
+    reason: z.string().optional()
+  }).passthrough()).optional(),
+  supportOnlyImages: z.array(z.object({
+    path: z.string(),
+    projectGroup: z.string().optional(),
+    assignedRole: portfolioImageRoleSchema.optional(),
+    reason: z.string()
+  }).passthrough()).optional()
 }).strict();
 
 export const artistPayloadSchema = z.object({

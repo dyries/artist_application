@@ -46,6 +46,8 @@ export const automationRuleText = {
     "Every generated package must separate internal-notes, user-review, and external-submission. Internal notes may contain matching logic, risks, missing information, work-selection rationale, AI judgment, and open call analysis. User review is Chinese-first and explains what the AI changed and why. External submission contains only formal institution-facing content and must not reveal automation traces or internal workflow language.",
   portfolioQuality:
     "Portfolio work is a primary deliverable. The AI and package writer act as a professional artist portfolio editor, not a portfolio checker. Before generating a portfolio, create a Portfolio Source Audit from data.works, formal images, source materials, existing portfolio files, and opportunity constraints. If no page limit is specified, default to a formal 20-page-ish portfolio with targetPages 20, minimumPages 16, and maximumPages 24; explicit opportunity page/file/single-PDF/combined-PDF/upload constraints override the default. Then create a structured PortfolioPlan JSON; do not rely on free-text selectedWorks parsing. Default cover is Artist Name, Selected Works, year, and contact only if available; never use opportunity title, mock/test language, review committee language, placeholders, unknown/N/A/TBD, generated-by-AI wording, or selection rationale in external portfolio files. Select images, order works, write captions and statement, choose page layouts, and distinguish overview/detail/installation/process/context images automatically. Every planned image should be in an allowed material directory, readable by sharp, copied with a stable unique filename into external-submission/images, and referenced by portfolio.html. Ordinary issues such as page count, small image, missing replaceable image, long captions, dense grids, forbidden terms, PDF size, or layout imbalance must enter the auto-repair loop for up to three rounds. Only true blocking issues such as no usable works/images, non-omittable required metadata, unclear eligibility/fees, payment, login, captcha, legal/privacy risk, unavailable physical work, missing special required materials, or irreversible submission may stop for the user.",
+  figmaApplicationPackageDesign:
+    "When a user provides a Figma file, frame, or node for application package UI, final submission package review, or related package presentation design, implementation must use the Figma skill against the exact reference. Start with get_design_context for the exact node or frame; if truncated, use get_metadata to map the file and re-fetch only needed nodes with get_design_context. Capture get_screenshot for the exact variant before coding. Reuse this repo's existing components, design tokens, utilities, routing, state, and data-fetch patterns instead of creating a parallel system. Match spacing, layout, hierarchy, and responsive behavior closely on desktop and mobile. Use Figma-returned localhost image or SVG sources directly and do not create placeholders or add icon packages for them. Validate against the Figma reference with Playwright and iterate until visual and behavioral differences are resolved. This design workflow must not add user review nodes beyond opportunity selection and final submission package approval.",
   publicFacingTone:
     "Public-facing CVs, portfolios, bios, statements, captions, form answers, and upload files must not expose application-packaging language such as 'for this open call', 'selected for', 'draft for', 'ready-to-copy', 'final candidate', or 'submission image for'. Never write No website, No Instagram, None, N/A, to be confirmed, details to be confirmed, draft, or placeholder in upload-ready materials. If a fact or link is missing, omit it from public-facing files unless the official form requires the field; keep uncertainty and selection logic in internal notes only. Tailor internally, but make the final portfolio read like a natural artist portfolio focused on works, materials, dates, dimensions, and context.",
   concreteWriting:
@@ -85,6 +87,7 @@ export function buildMachineApplicationPreferences(profile: ArtistProfile) {
     fileBoundaryRule: automationRuleText.fileBoundaries,
     reviewBilingualRule: automationRuleText.bilingualReview,
     portfolioQualityRule: automationRuleText.portfolioQuality,
+    figmaApplicationPackageDesignRule: automationRuleText.figmaApplicationPackageDesign,
     publicFacingToneRule: automationRuleText.publicFacingTone,
     concreteWritingRule: automationRuleText.concreteWriting,
     testRunIsolationRule: automationRuleText.testRunIsolation,
@@ -111,6 +114,9 @@ export function buildPromptRules(profile: ArtistProfile) {
     portfolioMustUseSourceAuditAndStructuredPlan: true,
     portfolioImagesMustFailClosed: true,
     portfolioVisualGateMustInspectRenderedOutput: true,
+    figmaApplicationPackageDesignMustUseExactNodeContextAndScreenshot: true,
+    figmaApplicationPackageDesignMustReuseRepoPatterns: true,
+    figmaApplicationPackageDesignMustBePlaywrightValidated: true,
     doNotInventLiveOpportunityFacts: true,
     projectMayFetchUserProvidedLinks: true,
     externalApiMustUseFetchedSourceTextForVerification: true,
@@ -157,6 +163,7 @@ Use this workspace as the source of truth for the artist application workflow. T
 - ${automationRuleText.fileBoundaries}
 - ${automationRuleText.bilingualReview}
 - ${automationRuleText.portfolioQuality}
+- ${automationRuleText.figmaApplicationPackageDesign}
 - ${automationRuleText.publicFacingTone}
 - ${automationRuleText.concreteWriting}
 - ${automationRuleText.testRunIsolation}
