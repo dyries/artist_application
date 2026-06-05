@@ -1,4 +1,4 @@
-import type { CvEntry, MaterialKind, OpportunityStatus, SourceMaterial, Work } from "@/types/domain";
+import type { CvEntry, MaterialKind, SourceMaterial, Work } from "@/types/domain";
 import { Area, Field } from "./FormControls";
 import type { StudioData } from "./studioTypes";
 
@@ -14,7 +14,6 @@ type SharedBusyProps = {
   isBusy: boolean;
 };
 
-type OpportunityDecision = (id: number, status: Extract<OpportunityStatus, "selected_by_user" | "not_selected">) => void;
 type FinalPackageDecision = (id: number, decision: "approve_final_submission_package" | "request_revision") => void;
 
 type MaterialsPanelProps = SharedBusyProps & {
@@ -232,7 +231,9 @@ type OpportunitiesPanelProps = SharedBusyProps & {
   manualOpportunityTitle: string;
   manualOpportunityUrl: string;
   prepareCodexContext: () => void;
-  setOpportunityDecision: OpportunityDecision;
+  selectedOpportunityIds: Set<number>;
+  completeOpportunityReview: () => void;
+  toggleOpportunitySelection: (id: number, selected: boolean) => void;
   setManualOpportunityNotes: (value: string) => void;
   setManualOpportunityTitle: (value: string) => void;
   setManualOpportunityUrl: (value: string) => void;
@@ -247,11 +248,16 @@ export function OpportunitiesPanel({
   manualOpportunityTitle,
   manualOpportunityUrl,
   prepareCodexContext,
-  setOpportunityDecision,
+  selectedOpportunityIds,
+  completeOpportunityReview,
+  toggleOpportunitySelection,
   setManualOpportunityNotes,
   setManualOpportunityTitle,
   setManualOpportunityUrl
 }: OpportunitiesPanelProps) {
+  const reviewableCount = data.opportunities.filter((opportunity) => ["new", "recommended", "confirmed"].includes(opportunity.status)).length;
+  const selectedReviewCount = data.opportunities.filter((opportunity) => selectedOpportunityIds.has(opportunity.id) && ["new", "recommended", "confirmed", "selected_by_user"].includes(opportunity.status)).length;
+
   return (
     <div className="panel stack">
       <h2>机会</h2>
@@ -266,9 +272,37 @@ export function OpportunitiesPanel({
         </button>
       </div>
       {data.opportunities.length === 0 && <p className="muted">Codex 自动化运行后，会按当前申请地区（默认全世界）先搜索更大的候选池，确认中国人/中国所在地艺术家可申请，再筛出驻留 Top 5 和展览/open call Top 5。</p>}
+      {data.opportunities.length > 0 && (
+        <div className="notice">
+          <strong>第一次审核：</strong>只勾选你要申请的机会，然后点“完成第一次审核并自动制包”。系统会把未勾选的候选机会标记为暂不申请，并立刻为已选机会准备最终提交包。
+        </div>
+      )}
+      {reviewableCount > 0 && (
+        <div className="toolbar">
+          <span className="badge">候选 {reviewableCount}</span>
+          <span className="badge">已选 {selectedReviewCount}</span>
+          <button onClick={completeOpportunityReview} disabled={isBusy}>
+            {busy === "opportunity-review" ? "制包中" : "完成第一次审核并自动制包"}
+          </button>
+          <button onClick={prepareCodexContext} disabled={isBusy}>
+            {busy === "prepare-codex" ? "刷新中" : "刷新申请包上下文"}
+          </button>
+        </div>
+      )}
       {data.opportunities.map((opportunity) => (
         <div className="card" key={opportunity.id}>
-          <h3>{opportunity.title}</h3>
+          <div className="item-card-header">
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={selectedOpportunityIds.has(opportunity.id)}
+                disabled={isBusy || opportunity.status === "not_selected" || opportunity.status === "package_ready_for_final_review" || opportunity.status === "approved_for_submission"}
+                onChange={(event) => toggleOpportunitySelection(opportunity.id, event.target.checked)}
+              />
+              <span>申请</span>
+            </label>
+            <h3>{opportunity.title}</h3>
+          </div>
           <div className="meta">
             <span className="badge">{opportunity.organization || "机构待识别"}</span>
             <span className="badge">{opportunity.deadline || "截止日期待识别"}</span>
@@ -279,24 +313,6 @@ export function OpportunitiesPanel({
           <p className="muted">{opportunity.summary || "等待 Codex 自动化分析。"}</p>
           {opportunity.risks && <p className="notice warn">{opportunity.risks}</p>}
           <a href={opportunity.url} target="_blank" rel="noreferrer">{opportunity.url}</a>
-          <div className="list-actions">
-            <button
-              onClick={() => setOpportunityDecision(opportunity.id, "selected_by_user")}
-              disabled={isBusy || opportunity.status === "selected_by_user"}
-            >
-              选择申请
-            </button>
-            <button
-              className="secondary"
-              onClick={() => setOpportunityDecision(opportunity.id, "not_selected")}
-              disabled={isBusy || opportunity.status === "not_selected"}
-            >
-              暂不申请
-            </button>
-            <button onClick={prepareCodexContext} disabled={isBusy}>
-              {busy === "prepare-codex" ? "刷新中" : "刷新申请包上下文"}
-            </button>
-          </div>
         </div>
       ))}
     </div>

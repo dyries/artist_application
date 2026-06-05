@@ -675,6 +675,65 @@ npm run typecheck
 
 Full verification continues with lint, tests, structure check, build, and `npm run check`.
 
+## 2026-06-03 13:15 CST
+
+### Scope
+
+- Converted the app flow from a manual multi-run workflow into a two-review workflow in code.
+- The first review now batches opportunity choices and automatically continues into package preparation.
+- Final package revision requests now automatically re-enter package preparation instead of stopping for another manual automation run.
+
+### Issues Found
+
+- The product rules said the user should review only twice, but the UI still required manual follow-up actions after the first review.
+- Each opportunity had individual select / not-select buttons, so the first review was fragmented across many actions.
+- After selecting opportunities, the user still had to go to automation settings and manually run project automation again before packages were produced.
+- A final package revision only changed status to `quality_blocked`; it did not automatically continue into the repair/preparation loop.
+
+### Root Cause
+
+- `runProjectAutomation` only had one full-run mode that mixed discovery, page refresh, opportunity verification, and package preparation.
+- Opportunity selection was implemented as a simple status update endpoint, not as the first review node of an end-to-end state machine.
+- The final package decision endpoint updated status but did not call package preparation again for revision.
+
+### Changes
+
+- Added `runProjectAutomation({ phase: "prepare-selected" })` so the app can skip discovery and continue directly with selected/preparing/quality-blocked opportunities.
+- Added `POST /api/opportunities/review` to submit the first review in one request, mark selected opportunities as `selected_by_user`, mark unselected review candidates as `not_selected`, and immediately run selected-opportunity package preparation.
+- Updated the opportunities UI to use checkboxes plus a single “完成第一次审核并自动制包” action.
+- Updated final package revision handling to automatically run the selected-opportunity preparation phase again.
+- Synchronized human and machine rules to state that first-review completion and final-package revision both auto-continue without adding extra user review nodes.
+
+### Files Changed
+
+- `src/lib/projectAutomation.ts`
+- `src/app/api/opportunities/review/route.ts`
+- `src/app/api/applications/[id]/route.ts`
+- `src/app/components/Studio.tsx`
+- `src/app/components/StudioPanels.tsx`
+- `src/app/components/studioTypes.ts`
+- `src/app/globals.css`
+- `src/lib/automationRules.ts`
+- `docs/rules.md`
+- `docs/fix-log.md`
+
+### Verification
+
+```bash
+npm run typecheck
+npm run lint
+npm run test:structure
+node --test tests/package-behavior.test.mjs
+npm run build
+```
+
+`npm test` was also started and 21 tests passed before the long package behavior child process was manually stopped at about 180 seconds. The same package behavior test then passed when run alone, completing in about 190 seconds.
+
+### Remaining Notes
+
+- The fully automatic package-preparation path still requires a configured external model API key in `.env.local`; without it, the first-review API returns the existing provider configuration error.
+- The app still pauses before payment, login, captcha, legal/privacy-sensitive actions, and irreversible external submission.
+
 ## 2026-05-19 13:56 CST
 
 ### Scope

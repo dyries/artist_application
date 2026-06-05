@@ -24,9 +24,16 @@ export type CodexContextResult = {
 export type ProjectAutomationResult = {
   provider: string;
   model: string;
+  phase?: "full" | "prepare-selected";
   reportPath: string;
   packagePaths: string[];
   discoveredOpportunities?: { title: string; url: string; sourceUrl: string }[];
+  data: StudioData;
+};
+
+export type OpportunityReviewResult = {
+  selectedCount: number;
+  automation: ProjectAutomationResult | null;
   data: StudioData;
 };
 

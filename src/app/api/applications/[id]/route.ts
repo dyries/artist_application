@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/apiResponse";
 import { archiveApprovedSubmission } from "@/lib/finalApproval";
 import { getApplication, logActivity, readArtistData, updateOpportunityStatus } from "@/lib/db";
+import { runProjectAutomation } from "@/lib/projectAutomation";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -36,6 +37,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         summary: "User requested revision before final submission.",
         metadata: { opportunityId: application.opportunityId }
       });
+      const automation = await runProjectAutomation({ phase: "prepare-selected" });
+      return NextResponse.json(automation.data);
     } else {
       return NextResponse.json({ error: "Decision must be approve_final_submission_package or request_revision" }, { status: 400 });
     }

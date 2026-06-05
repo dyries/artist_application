@@ -13,11 +13,18 @@ import type { AutomationRunMode, Opportunity, OpportunityStatus } from "@/types/
 
 const opportunityPromptTextLimit = readPositiveInt("ARTIST_STUDIO_OPPORTUNITY_PROMPT_TEXT_LIMIT", 12000);
 
-export async function runProjectAutomation() {
+type ProjectAutomationOptions = {
+  phase?: "full" | "prepare-selected";
+};
+
+type DiscoverySummary = Awaited<ReturnType<typeof discoverOpportunityCandidates>>;
+
+export async function runProjectAutomation(options: ProjectAutomationOptions = {}) {
   if (!getAiConfig()) {
     throw new Error("External model automation is not configured. Add DEEPSEEK_API_KEY or ARTIST_STUDIO_AI_API_KEY to .env.local and restart the project.");
   }
 
+  const phase = options.phase || "full";
   const runMode = readRunMode();
   fs.mkdirSync(generatedReportsDir, { recursive: true });
   const initialData = readArtistData({
@@ -27,16 +34,24 @@ export async function runProjectAutomation() {
     opportunityRawContentLimit: 1500,
     applicationLimit: 20
   });
-  const discovery = await discoverOpportunityCandidates(initialData.profile, runMode);
-  const afterDiscoveryData = runMode === "real" ? readArtistData({
+  const discovery = phase === "full"
+    ? await discoverOpportunityCandidates(initialData.profile, runMode)
+    : emptyDiscovery(runMode);
+  const afterDiscoveryData = runMode === "real" && phase === "full" ? readArtistData({
     materialLimit: 80,
     materialContentLimit: 3000,
     opportunityLimit: 120,
     opportunityRawContentLimit: 1500,
     applicationLimit: 20
   }) : initialData;
+  if (runMode === "real" && phase === "prepare-selected") {
+    markSelectedOpportunitiesPreparing(afterDiscoveryData.opportunities);
+  }
+  const refreshTargets = phase === "prepare-selected"
+    ? afterDiscoveryData.opportunities.filter(canPreparePackage)
+    : afterDiscoveryData.opportunities;
   const pageFetches = await refreshOpportunityPages(
-    afterDiscoveryData.opportunities,
+    refreshTargets,
     afterDiscoveryData.profile.automationBatchLimit,
     { persist: runMode === "real" }
   );
@@ -48,7 +63,7 @@ export async function runProjectAutomation() {
     applicationLimit: 20
   });
 
-  const prompt = buildAutomationPrompt(data, runMode);
+  const prompt = buildAutomationPrompt(data, runMode, phase);
   const ai = await callChatCompletion([
     {
       role: "system",
@@ -152,6 +167,7 @@ export async function runProjectAutomation() {
   return {
     provider: ai.provider,
     model: ai.model,
+    phase,
     reportPath,
     packagePaths,
     discoveredOpportunities: discovery.discovered,
@@ -159,9 +175,11 @@ export async function runProjectAutomation() {
   };
 }
 
-function buildAutomationPrompt(data: ReturnType<typeof readArtistData>, runMode: AutomationRunMode) {
+function buildAutomationPrompt(data: ReturnType<typeof readArtistData>, runMode: AutomationRunMode, phase: ProjectAutomationOptions["phase"]) {
   return JSON.stringify({
-    task: "Run professional artist application automation. Act as a professional artist portfolio editor, not a suggestion generator. Verify and rank opportunities first. Prepare application packages only for opportunities whose current status is selected_by_user, preparing, package_ready_for_final_review, or approved_for_submission.",
+    task: phase === "prepare-selected"
+      ? "Continue the two-review workflow after the user's first review. Prepare or repair final application packages only for opportunities whose current status is selected_by_user, preparing, or quality_blocked. Do not discover new opportunities in this phase."
+      : "Run professional artist application automation. Act as a professional artist portfolio editor, not a suggestion generator. Verify and rank opportunities first. Prepare application packages only for opportunities whose current status is selected_by_user, preparing, package_ready_for_final_review, or approved_for_submission.",
     runMode,
     userReviewModel: "The user reviews only two nodes: A) which opportunities to apply for, B) whether the final submission package may be submitted. Do not ask for image choice, page-by-page portfolio review, caption edits, or layout judgment. Ordinary portfolio quality problems are repaired automatically by the system. Only final submission, payment, login, captcha, legal declarations, privacy risk, unclear eligibility, unclear fees, or missing critical required material require user intervention.",
     fileBoundaryModel: {
@@ -285,7 +303,9 @@ function buildAutomationPrompt(data: ReturnType<typeof readArtistData>, runMode:
       "External portfolio files must not contain mock, draft, placeholder, unknown, N/A, TBD, generated-by-AI, or dimensions recorded in source material."
     ],
     rules: buildPromptRules(data.profile),
-    packagePreparationGate: "Do not create applicationPackages for new/recommended/confirmed opportunities. First produce verifiedOpportunities with recommended status and Chinese rationale; wait for selected_by_user status before preparing packages.",
+    packagePreparationGate: phase === "prepare-selected"
+      ? "The user's first review has already happened. Create applicationPackages for selected_by_user/preparing/quality_blocked opportunities and repair ordinary quality issues automatically. Do not ask the user for intermediate image choice, caption edits, or page-by-page portfolio review."
+      : "Do not create applicationPackages for new/recommended/confirmed opportunities. First produce verifiedOpportunities with recommended status and Chinese rationale; wait for selected_by_user status before preparing packages.",
     portfolioReferenceResearchUsedInThisImplementation: [
       "ExhibitFolio: portfolio PDFs commonly include bio, statement, and artwork tearsheets for gallery/residency uses.",
       "Artists Collecting Society portfolio guide: application PDF portfolios should prioritize images and concise captions with title, date, size, medium.",
@@ -307,6 +327,18 @@ function buildAutomationPrompt(data: ReturnType<typeof readArtistData>, runMode:
     })),
     currentOpportunities: data.opportunities
   }, null, 2);
+}
+
+function emptyDiscovery(runMode: AutomationRunMode): DiscoverySummary {
+  return { sourceUrls: [], results: [], discovered: [], runMode };
+}
+
+function markSelectedOpportunitiesPreparing(opportunities: Opportunity[]) {
+  for (const opportunity of opportunities) {
+    if (opportunity.status === "selected_by_user" || opportunity.status === "quality_blocked") {
+      updateOpportunityStatus(opportunity.id, "preparing");
+    }
+  }
 }
 
 function upsertVerifiedOpportunity(

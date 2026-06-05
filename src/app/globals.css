@@ -288,6 +288,20 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.checkbox-row input {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
 .meta {
   display: flex;
   flex-wrap: wrap;
