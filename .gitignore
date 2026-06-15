@@ -1,0 +1,23 @@
+.next/
+node_modules/
+tsconfig.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
+backups/
+
+# Loose local notes at the repository root can contain private planning details.
+/*.docx
+/*.pdf
+
+# Databases, source materials, artwork, test fixtures, generated packages, and
+# submission archives are local-only and must never be published.
+data/
+artist-assets/
+generated/
+tests/
+
+# Local portfolio QA artifacts may contain private artwork and artist metadata.
+/artist-application-portfolio-quality-review.md
+public/portfolio-test/
