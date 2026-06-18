@@ -21,6 +21,7 @@ export function auditSearchCoverage(input: {
     || input.verified.length >= input.plan.limits.verificationCandidateLimit;
   const fixedSourceOnly = !succeeded.some((provider) => /web-search|rss/i.test(provider));
   const report: SearchCoverageReport = {
+    currentStage: "completed",
     generatedQueries: input.queries.length,
     executedQueries,
     queriesByLanguage: countBy(input.queries, "language"),
@@ -29,6 +30,7 @@ export function auditSearchCoverage(input: {
     providersAttempted: [...new Set(input.providerResults.map((result) => result.provider))],
     providersSucceeded: [...new Set(succeeded)],
     providersFailed: failed,
+    candidatesBySource: countBy(input.providerResults.flatMap((result) => result.results.map((item) => ({ source: `${item.sourceType}:${item.sourceName}` }))), "source"),
     discoveredCount: input.providerResults.reduce((sum, result) => sum + result.results.length, 0),
     normalizedCount: input.normalized.length,
     deduplicatedCount: input.deduped.length,

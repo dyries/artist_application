@@ -1,13 +1,13 @@
 import { recordOpportunityDiscoveryRun, upsertOpportunity } from "./db";
 import { runOpportunityDiscovery } from "./opportunityDiscovery";
-import type { ArtistProfile, AutomationRunMode } from "@/types/domain";
+import type { ArtistProfile, AutomationRunMode, Opportunity } from "@/types/domain";
 import type { ScoredCandidate, ShortlistedCandidate } from "./opportunityDiscovery";
 
 const discoverySourceEnvName = "ARTIST_STUDIO_DISCOVERY_SOURCE_URLS";
 const discoverySourceLabel = "discovered-opportunity-search";
 
-export async function discoverOpportunityCandidates(profile: ArtistProfile, runMode: AutomationRunMode) {
-  const discovery = await runOpportunityDiscovery(profile, runMode);
+export async function discoverOpportunityCandidates(profile: ArtistProfile, runMode: AutomationRunMode, existingOpportunities: Opportunity[] = []) {
+  const discovery = await runOpportunityDiscovery(profile, runMode, existingOpportunities);
   if (runMode === "real") {
     const shortlistedUrls = new Set(discovery.discovered.map((candidate) => candidate.url));
     const toPersist = discovery.candidatesForVerification.slice(0, discovery.plan.limits.verificationCandidateLimit);
@@ -19,6 +19,7 @@ export async function discoverOpportunityCandidates(profile: ArtistProfile, runM
       profile: discovery.plan.profile,
       limits: discovery.plan.limits,
       queries: discovery.queries,
+      providerResults: discovery.results,
       candidates: discovery.candidatesForVerification,
       shortlist: discovery.discovered,
       coverage: discovery.coverage

@@ -96,6 +96,7 @@ const normalized = normalizeCandidates([
 ]);
 assert(!normalized[0].url.includes("utm_"), "UTM parameters should be removed");
 assert(!normalized[0].url.includes("fbclid"), "tracking parameters should be removed");
+assert(normalizeCandidates([{ ...searchResult, url: "http://example.org/opportunities/open-call/" }])[0].url.startsWith("https://"), "HTTP and HTTPS should normalize together");
 assert.equal(normalized[0].canonicalUrl, normalized[0].normalizedUrl, "canonical URL should be stored");
 const deduped = deduplicateCandidates(normalized);
 assert(deduped.length < normalized.length, "same opportunity from multiple sources should dedupe");
@@ -132,6 +133,7 @@ const providerResults = [
   { provider: "curated-boards", ok: true, results: [searchResult] }
 ];
 const coverage = auditSearchCoverage({ plan, queries, providerResults, normalized, deduped, triaged, verified: scored, shortlisted: shortlist });
+assert.equal(coverage.currentStage, "completed", "coverage should expose the current search stage");
 assert.equal(coverage.providersFailed[0].provider, "configured-web-search", "unconfigured providers should be reported");
 assert(coverage.warnings.some((warning) => /fixed|configured|provider|source/i.test(warning)), "coverage should warn when provider coverage is limited");
 assert.equal(coverage.verifiedCount, scored.length, "coverage should count verified candidates");
@@ -146,16 +148,42 @@ for (const table of [
   "opportunity_candidate_sources",
   "opportunity_verifications",
   "opportunity_search_coverage_reports",
-  "opportunity_fetch_cache"
+  "opportunity_fetch_cache",
+  "opportunity_query_cache"
 ]) {
   assert(dbSource.includes(table), `migration should include ${table}`);
 }
 assert(dbSource.includes("runMigration(database, 3"), "migration should be versioned for old database compatibility");
+assert(dbSource.includes("runMigration(database, 4"), "new cache migration should be compatible with databases that already applied migration 3");
 assert(dbSource.includes("CREATE TABLE IF NOT EXISTS"), "migration should be additive");
+assert(dbSource.includes("readOpportunityQueryCache"), "query result cache should be readable");
+assert(dbSource.includes("recordOpportunityQueryCache"), "query result cache should be writable");
+assert(dbSource.includes("opportunity_candidate_sources"), "candidate source relation should be persisted");
 
 const pagesSource = fs.readFileSync(path.join(root, "src/lib/opportunityPages.ts"), "utf8");
 assert(pagesSource.includes("renderOpportunityPage"), "dynamic page verification path should exist");
 assert(pagesSource.includes("playwright"), "Playwright path should be available for dynamic pages");
+assert(pagesSource.includes("fetchOpportunityPageForUrl"), "candidate verification should be able to fetch URL evidence before scoring");
+
+const discoverySource = fs.readFileSync(path.join(root, "src/lib/opportunityDiscovery/index.ts"), "utf8");
+assert(discoverySource.includes("manualSearchResults"), "manual links should be converted into discovery search results");
+assert(discoverySource.includes("fetchCandidateEvidence"), "discovery should fetch candidate page evidence before scoring");
+
+const providerIndexSource = fs.readFileSync(path.join(root, "src/lib/opportunityDiscovery/providers/index.ts"), "utf8");
+assert(providerIndexSource.includes("manualSourcesProvider"), "manual provider should be part of the provider registry");
+
+const sourceRegistry = fs.readFileSync(path.join(root, "src/lib/opportunityDiscovery/sourceRegistry.ts"), "utf8");
+for (const sourceType of ["government arts council", "biennial", "art festival", "independent art space", "art research centre"]) {
+  assert(sourceRegistry.includes(sourceType), `institution registry should include ${sourceType}`);
+}
+
+const discoverSource = fs.readFileSync(path.join(root, "src/lib/opportunityDiscovery/discoverCandidates.ts"), "utf8");
+assert(discoverSource.includes("readOpportunityQueryCache"), "discovery should read query cache before provider calls");
+assert(discoverSource.includes("recordOpportunityQueryCache"), "discovery should record query cache after provider calls");
+
+const evidenceSource = fs.readFileSync(path.join(root, "src/lib/opportunityDiscovery/fetchCandidateEvidence.ts"), "utf8");
+assert(evidenceSource.includes("readOpportunityFetchCache"), "candidate evidence fetch should read page cache");
+assert(evidenceSource.includes("recordOpportunityFetchCache"), "candidate evidence fetch should record page cache");
 
 console.log("Opportunity discovery tests passed.");
 

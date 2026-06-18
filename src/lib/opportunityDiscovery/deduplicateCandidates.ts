@@ -1,5 +1,5 @@
 import type { DedupedCandidate, NormalizedCandidate } from "./types";
-import { fingerprint } from "./text";
+import { fingerprint, opportunityUrlIdentity } from "./text";
 
 export function deduplicateCandidates(candidates: NormalizedCandidate[]): DedupedCandidate[] {
   const groups = new Map<string, NormalizedCandidate[]>();
@@ -20,8 +20,9 @@ export function deduplicateCandidates(candidates: NormalizedCandidate[]): Dedupe
 }
 
 function dedupeKey(candidate: NormalizedCandidate) {
-  if (candidate.canonicalUrl) return candidate.canonicalUrl;
-  return candidate.duplicateGroupId || fingerprint(`${candidate.normalizedTitle}|${candidate.contentFingerprint}`);
+  const urlIdentity = opportunityUrlIdentity(candidate.canonicalUrl || candidate.normalizedUrl);
+  if (candidate.normalizedTitle) return fingerprint(`${urlIdentity}|${candidate.normalizedTitle}`);
+  return candidate.duplicateGroupId || fingerprint(`${urlIdentity}|${candidate.contentFingerprint}`);
 }
 
 function choosePrimary(group: NormalizedCandidate[]) {

@@ -61,9 +61,11 @@ buildSearchProfile
 → auditSearchCoverage
 ```
 
-系统会用艺术家的媒介、主题、方法、地区偏好、费用接受度和机会等级偏好生成多语言查询，并通过可插拔 Provider 搜索。默认 Provider 包括策展机会平台和机构官网 registry；配置 `ARTIST_STUDIO_WEB_SEARCH_ENDPOINT` 或 `ARTIST_STUDIO_DISCOVERY_RSS_URLS` 后可以扩展 web search / RSS。Provider 未配置或失败会写入覆盖审计，不会伪装成已全面覆盖。
+系统会用艺术家的媒介、主题、方法、地区偏好、费用接受度和机会等级偏好生成多语言查询，并通过可插拔 Provider 搜索。默认 Provider 包括手动链接、策展机会平台和机构官网 registry；配置 `ARTIST_STUDIO_WEB_SEARCH_ENDPOINT` 或 `ARTIST_STUDIO_DISCOVERY_RSS_URLS` 后可以扩展 web search / RSS。Provider 未配置或失败会写入覆盖审计，不会伪装成已全面覆盖。
 
-发现、初筛、核验和最终推荐使用独立预算：查询数、单查询结果数、发现候选数、初筛数、核验数、最终 shortlist 数和制包数分开控制。`automationBatchLimit` 只控制已选机会的制包/深度处理数量，不再截断搜索发现或核验池。
+用户手动添加的链接不会走旁路：它们会通过 manual provider 进入同一套规范化、去重、初筛、核验、评分、推荐和 coverage audit。深度核验会在评分前尽量读取候选页面证据，优先使用公开页面抓取、Playwright 动态渲染、公开附件/PDF 文本和表单摘要。查询结果和页面内容会写入缓存，减少重复抓取；缓存命中、Provider 不可用、抓取失败和覆盖不足仍会保留在运行记录与覆盖报告里。
+
+发现、初筛、核验和最终推荐使用独立预算：查询数、单查询结果数、发现候选数、初筛数、核验数、最终 shortlist 数和制包数分开控制。`automationBatchLimit` 只控制已选机会的制包/深度处理数量；`ARTIST_STUDIO_APPLICATION_PREPARATION_LIMIT` 作为独立制包安全上限，不再截断搜索发现或核验池。
 
 真实运行会把核验池写入机会库，约五个最终推荐标记为 `recommended`，其他保留为 `new` 候选。test/mock 只写报告，不污染真实机会状态。
 

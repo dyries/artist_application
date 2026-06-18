@@ -1,20 +1,24 @@
 import type { SearchPlan, TriagedCandidate, VerifiedCandidate } from "./types";
+import type { CandidateEvidence } from "./fetchCandidateEvidence";
 
-export function verifyCandidates(candidates: TriagedCandidate[], plan: SearchPlan, now = new Date()): VerifiedCandidate[] {
+export function verifyCandidates(candidates: TriagedCandidate[], plan: SearchPlan, now = new Date(), evidenceByUrl = new Map<string, CandidateEvidence>()): VerifiedCandidate[] {
   return candidates.map((candidate) => {
-    const text = `${candidate.title}\n${candidate.snippet || ""}`;
+    const evidence = evidenceByUrl.get(candidate.url);
+    const text = `${candidate.title}\n${candidate.snippet || ""}\n${evidence?.content || ""}`;
     const deadline = inferDeadline(text);
     const expired = deadline ? Date.parse(`${deadline}T23:59:59Z`) < now.getTime() : false;
     const opportunityType = inferOpportunityType(text, candidate.discoveryQuery || "");
     const organization = inferOrganization(candidate);
     const fee = inferFee(text);
     const eligibility = inferEligibility(text);
-    const sourceReliability = candidate.isOfficialSource ? 88 : candidate.sourceType === "web_search" ? 65 : 58;
+    const sourceReliability = sourceReliabilityScore(candidate, evidence);
+    const conflicts = evidence?.ok === false ? [`Page fetch failed during deep verification: ${evidence.error || "unknown error"}`] : [];
+    const verificationStatus = verificationStatusFor({ expired, candidate, deadline, evidence, conflicts });
 
     return {
       ...candidate,
       officialUrl: candidate.officialSourceUrl || candidate.url,
-      applicationUrl: /\bapply|application|submit|申请|応募|지원/i.test(candidate.url) ? candidate.url : undefined,
+      applicationUrl: inferApplicationUrl(candidate.url, text),
       organization,
       opportunityType,
       location: inferLocation(text, plan.targetRegions),
@@ -41,11 +45,42 @@ export function verifyCandidates(candidates: TriagedCandidate[], plan: SearchPla
       awardAmount: /award|prize|奖金|賞/i.test(text) ? "award language present; verify amount" : "",
       selectionProcess: "",
       sourceReliability,
-      verificationStatus: expired ? "expired" : candidate.triageStatus === "keep" && deadline ? "partially_verified" : "unverified",
+      verificationStatus,
       verifiedAt: now.toISOString(),
-      conflicts: []
+      conflicts
     };
   });
+}
+
+function sourceReliabilityScore(candidate: TriagedCandidate, evidence?: CandidateEvidence) {
+  let score = candidate.isOfficialSource ? 82 : candidate.sourceType === "web_search" ? 62 : candidate.sourceType === "manual" ? 58 : 54;
+  if (evidence?.ok) score += 10;
+  if (evidence?.mode === "browser-rendered") score += 4;
+  if (evidence?.attachments?.length) score += 3;
+  if (evidence?.forms?.length) score += 2;
+  if (evidence?.fromCache) score -= 2;
+  if (evidence?.ok === false) score -= 30;
+  return Math.max(0, Math.min(100, score));
+}
+
+function verificationStatusFor(input: {
+  expired: boolean;
+  candidate: TriagedCandidate;
+  deadline: string;
+  evidence?: CandidateEvidence;
+  conflicts: string[];
+}): VerifiedCandidate["verificationStatus"] {
+  if (input.expired) return "expired";
+  if (input.conflicts.length > 0) return "conflicting_information";
+  if (input.evidence?.ok && input.deadline && input.candidate.triageStatus === "keep") return "verified";
+  if (input.evidence?.ok || input.deadline || input.candidate.triageStatus === "keep") return "partially_verified";
+  return "unverified";
+}
+
+function inferApplicationUrl(url: string, text: string) {
+  if (/\bapply|application|submit|申请|応募|지원/i.test(url)) return url;
+  const linked = text.match(/https:\/\/[^\s)'"<>]+(?:apply|application|submit)[^\s)'"<>]*/i)?.[0];
+  return linked || undefined;
 }
 
 function inferDeadline(text: string) {

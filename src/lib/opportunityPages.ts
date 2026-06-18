@@ -8,7 +8,7 @@ import { extractMaterialText } from "./fileMaterials";
 import { assertPublicOpportunityUrl } from "./urlSecurity";
 import type { Opportunity } from "@/types/domain";
 
-type PageFetchResult = {
+export type PageFetchResult = {
   opportunityId: number;
   url: string;
   ok: boolean;
@@ -63,17 +63,17 @@ export async function refreshOpportunityPages(opportunities: Opportunity[], limi
   return results;
 }
 
-async function fetchOpportunityPage(opportunity: Opportunity): Promise<PageFetchResult> {
+export async function fetchOpportunityPageForUrl(input: { id?: number; url: string; title?: string }): Promise<PageFetchResult> {
   try {
-    const url = await assertPublicOpportunityUrl(opportunity.url);
+    const url = await assertPublicOpportunityUrl(input.url);
     const page = renderJsPages ? await renderOpportunityPage(url) : null;
     const fetched = page ?? await fetchStaticOpportunityPage(url);
     const attachmentResults = await fetchOpportunityAttachments(fetched.links, url);
-    const title = fetched.title || opportunity.title || opportunity.url;
+    const title = fetched.title || input.title || input.url;
     const content = renderOpportunityContent(fetched, attachmentResults);
     return {
-      opportunityId: opportunity.id,
-      url: opportunity.url,
+      opportunityId: input.id ?? 0,
+      url: input.url,
       ok: true,
       title,
       content: content.slice(0, maxPageTextLength),
@@ -83,14 +83,18 @@ async function fetchOpportunityPage(opportunity: Opportunity): Promise<PageFetch
     };
   } catch (error) {
     return {
-      opportunityId: opportunity.id,
-      url: opportunity.url,
+      opportunityId: input.id ?? 0,
+      url: input.url,
       ok: false,
-      title: opportunity.title,
+      title: input.title || input.url,
       content: "",
       error: error instanceof Error ? error.message : String(error)
     };
   }
+}
+
+async function fetchOpportunityPage(opportunity: Opportunity): Promise<PageFetchResult> {
+  return fetchOpportunityPageForUrl({ id: opportunity.id, url: opportunity.url, title: opportunity.title });
 }
 
 type ExtractedPage = {

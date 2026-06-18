@@ -2829,3 +2829,71 @@ Known limitations:
 
 - Configure `ARTIST_STUDIO_WEB_SEARCH_ENDPOINT` or RSS URLs for broader live web/RSS coverage; without them, the UI will correctly report fixed-source-only limited coverage.
 - Run a real discovery pass from the app to populate the new coverage report tables and display the coverage panel with live counts.
+
+## 2026-06-18 20:42 CST Opportunity discovery completion audit hardening
+
+### Task Goal
+
+- Re-audit `/Users/chenyu/Desktop/机会搜索系统重构目标.md` against the current implementation and close gaps that were not proven complete by the previous refactor.
+
+### Files Changed
+
+- `src/lib/opportunityDiscovery/`
+- `src/lib/opportunityDiscovery/providers/manualSources.ts`
+- `src/lib/opportunityPages.ts`
+- `src/lib/opportunitySearch.ts`
+- `src/lib/projectAutomation.ts`
+- `src/lib/db.ts`
+- `src/lib/automationRules.ts`
+- `src/app/components/StudioPanels.tsx`
+- `scripts/opportunity-discovery.test.cjs`
+- `docs/rules.md`
+- `docs/automation.md`
+- `docs/data-model.md`
+- `WORKLOG.md`
+
+### What Changed
+
+- Routed user-provided manual opportunity links into the same discovery provider pipeline as automatically found opportunities.
+- Added candidate page evidence fetching before verification/scoring, using the existing public page fetcher, Playwright-rendered path, public attachments/PDF extraction, and detected forms.
+- Added query result cache support with a new additive migration `opportunity_query_cache`, plus read/write helpers and provider-cache use.
+- Connected the existing page fetch cache table to candidate evidence fetching.
+- Persisted provider/source status and candidate-source relations instead of relying only on coverage JSON.
+- Improved URL identity normalization to merge HTTP/HTTPS, common language path variants, and HTML/PDF relationship candidates more reliably.
+- Added coverage `currentStage` and per-source candidate counts for reports and the opportunity UI.
+- Expanded institution registry coverage to include government arts councils, biennials, festivals, independent art spaces, and art research centres.
+- Expanded the focused discovery test script to cover the new manual provider path, cache hooks, v4 migration, source registry coverage, HTTP/HTTPS normalization, stage reporting, and evidence fetching hooks.
+
+### Why It Changed
+
+- A stricter read of the target file showed the prior implementation still had weak evidence for manual-link unification, pre-scoring deep verification, cache usage, source relation persistence, current-stage UI, and institution source diversity.
+- These changes make the requested final state more directly true rather than relying on partial compatibility or documentation.
+
+### Tests/Checks Run
+
+- `git status -sb --untracked-files=all`
+- `npm run typecheck`
+- `npm run test:opportunity-discovery`
+- `npm run lint`
+- `npm run test:structure`
+- `npm run build`
+- `npm run check:worklog`
+- `git diff --check`
+- Playwright desktop/mobile smoke check on `http://localhost:3010`
+
+### Result
+
+- Passed: opportunity discovery focused tests, structure verification, typecheck, lint, production build, worklog check, and whitespace diff check.
+- Passed: desktop and mobile Playwright smoke checks showed no horizontal overflow, and the coverage block includes stage text when present.
+
+### Issues Found
+
+- Previous discovery pipeline had a manual provider type in the plan but no actual manual source provider.
+- Verification used snippets before scoring and only refreshed stored opportunity pages after candidates were already recommended.
+- Cache tables existed for page fetches but were not actively used by discovery; query result cache was missing.
+- Source and candidate-source tables existed but provider/source relationship records were incomplete.
+- UI coverage did not expose the current search stage.
+
+### Next Steps
+
+- Commit and push the hardening changes to `origin/main`.

@@ -56,7 +56,9 @@
 - 每轮已选机会的深度制包数量必须遵守 `automationBatchLimit`，范围是 1-100；如果用户在对话里给出更新的数量，以最新指令为准。机会发现、查询、初筛、核验和最终推荐必须使用独立的 discovery limits，不能再用 `automationBatchLimit` 同时限制候选发现和核验。
 - 机会搜索必须按 `buildSearchProfile → buildSearchPlan → generateSearchQueries → discoverCandidates → normalizeCandidates → deduplicateCandidates → triageCandidates → verifyCandidates → scoreCandidates → buildDiverseShortlist → auditSearchCoverage` 分阶段执行。
 - 艺术家媒介、主题、方法、地区偏好、语言、资格、费用偏好和机会等级偏好必须从搜索画像开始影响查询词、来源、初筛、评分和推荐组合。
-- 每轮搜索必须记录覆盖审计；外部 web search、RSS 或其他 Provider 未配置或失败时必须标注覆盖不足，不能声称全面搜索。
+- 用户手动添加的机会链接必须进入同一套规范化、去重、初筛、核验、评分、推荐和覆盖审计流程，不能和自动发现机会维护两套逻辑。
+- 深度核验应在评分前使用公开页面证据，包括普通 HTTP 抓取、Playwright 动态渲染、公开附件/PDF 文本和表单摘要；查询结果和页面抓取缓存可以降低重复成本，但必须保留 stale/失败/未覆盖状态。
+- 每轮搜索必须记录覆盖审计；外部 web search、RSS 或其他 Provider 未配置或失败时必须标注覆盖不足，不能声称全面搜索。前端或报告必须显示当前搜索阶段、每个来源发现数量、发现/初筛/核验/推荐数量和预算截断状态。
 - 申请地区可以在页面里选择，默认是全世界。自动化必须按这个地区偏好搜索和排序，不能把它和艺术家当前所在地混为一谈。
 - 费用接受度可以在页面里选择，默认是 `conservative`（保守：免费/强资助优先）。`application_fee_ok` 表示可接受少量申请费；`paid_ok` 表示付费展览/驻留也可以进入候选池，但必须完整标注费用、价值判断和风险，付款前仍必须暂停确认。
 - 机会等级偏好可以在页面里选择，默认是 `high_tier`（高等级优先）。`balanced` 表示高等级 + 可信中等级机会；`open` 表示也可以看小机构、新空间和实验项目，但必须明确标注可信度和风险。

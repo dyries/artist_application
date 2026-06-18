@@ -26,7 +26,16 @@ export const institutionSources: RegistrySource[] = [
   { name: "Korea Arts Management Service", url: "https://www.gokams.or.kr/", type: "institution_site", region: "Korea", languages: ["ko", "en"], institutionType: "arts council" },
   { name: "Onassis AiR", url: "https://www.onassis.org/initiatives/onassis-air", type: "institution_site", region: "Europe", languages: ["en"], institutionType: "residency programme" },
   { name: "Akademie Schloss Solitude", url: "https://www.akademie-solitude.de/en/application/", type: "institution_site", region: "Europe", languages: ["en"], institutionType: "residency programme" },
-  { name: "Eyebeam", url: "https://www.eyebeam.org/opportunities/", type: "institution_site", region: "North America", languages: ["en"], institutionType: "art centre" }
+  { name: "Eyebeam", url: "https://www.eyebeam.org/opportunities/", type: "institution_site", region: "North America", languages: ["en"], institutionType: "art centre" },
+  { name: "Creative Capital", url: "https://creative-capital.org/about/open-calls/", type: "institution_site", region: "North America", languages: ["en"], institutionType: "foundation" },
+  { name: "Canada Council for the Arts", url: "https://canadacouncil.ca/funding/grants", type: "institution_site", region: "North America", languages: ["en"], institutionType: "government arts council" },
+  { name: "Arts Council England", url: "https://www.artscouncil.org.uk/ProjectGrants", type: "institution_site", region: "Europe", languages: ["en"], institutionType: "government arts council" },
+  { name: "Pro Helvetia", url: "https://prohelvetia.ch/en/find-support/", type: "institution_site", region: "Europe", languages: ["en"], institutionType: "cultural institute" },
+  { name: "European Cultural Foundation", url: "https://culturalfoundation.eu/open-calls/", type: "institution_site", region: "Europe", languages: ["en"], institutionType: "foundation" },
+  { name: "Liverpool Biennial", url: "https://www.biennial.com/opportunities/", type: "institution_site", region: "Europe", languages: ["en"], institutionType: "biennial" },
+  { name: "Ars Electronica", url: "https://ars.electronica.art/news/en/calls/", type: "institution_site", region: "Europe", languages: ["en"], institutionType: "art festival" },
+  { name: "SOMA Mexico", url: "https://somamexico.org/en/open-calls/", type: "institution_site", region: "Latin America", languages: ["en"], institutionType: "independent art space" },
+  { name: "ZKM Center for Art and Media", url: "https://zkm.de/en/open-calls", type: "institution_site", region: "Europe", languages: ["en"], institutionType: "art research centre" }
 ];
 
 export function configuredSources() {

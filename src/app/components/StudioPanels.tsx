@@ -281,6 +281,7 @@ export function OpportunitiesPanel({
               <h3>搜索覆盖审计</h3>
               <p className="muted">区分候选发现、低成本初筛、深度核验和最终推荐；未配置或失败的来源不会被当作已覆盖。</p>
             </div>
+            <span className="badge">阶段：{coverage.currentStage}</span>
             <span className="badge">置信度：{coverage.confidence}</span>
           </div>
           <div className="coverage-grid">
@@ -293,6 +294,7 @@ export function OpportunitiesPanel({
           </div>
           <div className="meta">
             <span className="badge">来源：{coverage.providersSucceeded.join("、") || "无成功来源"}</span>
+            <span className="badge">来源候选：{Object.entries(coverage.candidatesBySource).map(([source, count]) => `${source} ${count}`).join("、") || "无"}</span>
             {coverage.budgetTruncated && <span className="badge">预算截断</span>}
             {coverage.fixedSourceOnly && <span className="badge">仅固定来源</span>}
           </div>

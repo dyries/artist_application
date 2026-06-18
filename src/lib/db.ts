@@ -17,7 +17,7 @@ import type {
   SubmissionMethod,
   Work
 } from "@/types/domain";
-import type { SearchCoverageReport, SearchQuery, ScoredCandidate, ShortlistedCandidate } from "./opportunityDiscovery";
+import type { ProviderRunResult, SearchCoverageReport, SearchQuery, ScoredCandidate, ShortlistedCandidate } from "./opportunityDiscovery";
 
 let db: Database.Database | null = null;
 
@@ -181,6 +181,22 @@ type SearchCoverageReportRow = {
   search_run_id: number;
   report_json: string;
   created_at: string;
+};
+
+type OpportunityFetchCacheRow = {
+  normalized_url: string;
+  content_fingerprint: string;
+  content_excerpt: string;
+  status: string;
+  fetched_at: string;
+};
+
+type OpportunityQueryCacheRow = {
+  provider: string;
+  query: string;
+  results_json: string;
+  status: string;
+  fetched_at: string;
 };
 
 export function getDb() {
@@ -530,6 +546,22 @@ function migrate(database: Database.Database) {
       CREATE INDEX IF NOT EXISTS idx_opportunity_candidates_dedupe ON opportunity_candidates(duplicate_group_id, canonical_url);
       CREATE INDEX IF NOT EXISTS idx_opportunity_verifications_run ON opportunity_verifications(search_run_id, score_total DESC);
       CREATE INDEX IF NOT EXISTS idx_opportunity_coverage_created ON opportunity_search_coverage_reports(created_at DESC, id DESC);
+    `);
+  });
+
+  runMigration(database, 4, "opportunity discovery query cache", () => {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS opportunity_query_cache (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        provider TEXT NOT NULL,
+        query TEXT NOT NULL,
+        results_json TEXT NOT NULL DEFAULT '[]',
+        status TEXT NOT NULL DEFAULT 'unknown',
+        fetched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(provider, query)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_opportunity_query_cache_provider ON opportunity_query_cache(provider, fetched_at DESC);
     `);
   });
 }
@@ -1144,6 +1176,7 @@ export function recordOpportunityDiscoveryRun(input: {
   profile: unknown;
   limits: unknown;
   queries: SearchQuery[];
+  providerResults: ProviderRunResult[];
   candidates: ScoredCandidate[];
   shortlist: ShortlistedCandidate[];
   coverage: SearchCoverageReport;
@@ -1167,6 +1200,7 @@ export function recordOpportunityDiscoveryRun(input: {
       )
     `);
     for (const query of input.queries) {
+      const queryProviderResults = input.providerResults.filter((result) => result.results.some((item) => item.discoveryQuery === query.query));
       insertQuery.run({
         runId,
         query: query.query,
@@ -1176,9 +1210,40 @@ export function recordOpportunityDiscoveryRun(input: {
         priority: query.priority,
         generatedFrom: query.generatedFrom.join(", "),
         executed: 1,
-        provider: "",
-        resultCount: 0
+        provider: queryProviderResults.map((result) => result.provider).join(", "),
+        resultCount: queryProviderResults.reduce((sum, result) => sum + result.results.filter((item) => item.discoveryQuery === query.query).length, 0)
       });
+    }
+
+    const insertSource = database.prepare(`
+      INSERT INTO opportunity_sources (name, source_type, url, region, language, status, last_error, last_checked_at)
+      VALUES (@name, @sourceType, @url, @region, @language, @status, @lastError, CURRENT_TIMESTAMP)
+    `);
+    const sourceSeen = new Set<string>();
+    for (const providerResult of input.providerResults) {
+      const resultSources = providerResult.results.length
+        ? providerResult.results.map((result) => ({
+          name: result.sourceName || providerResult.provider,
+          sourceType: result.sourceType,
+          url: result.sourceUrl || result.url,
+          language: result.discoveryLanguage || "",
+          status: providerResult.ok ? "ok" : "failed",
+          lastError: providerResult.error || ""
+        }))
+        : [{
+          name: providerResult.provider,
+          sourceType: "provider",
+          url: "",
+          language: "",
+          status: providerResult.ok ? "ok_empty" : "failed",
+          lastError: providerResult.error || ""
+        }];
+      for (const source of resultSources) {
+        const key = `${source.name}|${source.url}|${source.status}|${source.lastError}`;
+        if (sourceSeen.has(key)) continue;
+        sourceSeen.add(key);
+        insertSource.run({ ...source, region: "" });
+      }
     }
 
     const insertCandidate = database.prepare(`
@@ -1203,6 +1268,19 @@ export function recordOpportunityDiscoveryRun(input: {
         @requiredMaterials, @sourceReliability, @verificationStatus, @scoreTotal, @scoreJson, @verifiedAt
       )
     `);
+    const selectCandidateId = database.prepare(`
+      SELECT id FROM opportunity_candidates
+      WHERE search_run_id = @runId AND normalized_url = @normalizedUrl
+      ORDER BY id DESC
+      LIMIT 1
+    `);
+    const insertCandidateSource = database.prepare(`
+      INSERT INTO opportunity_candidate_sources (
+        candidate_id, source_name, source_type, source_url, discovery_query, discovery_language, discovered_at
+      ) VALUES (
+        @candidateId, @sourceName, @sourceType, @sourceUrl, @discoveryQuery, @discoveryLanguage, @discoveredAt
+      )
+    `);
     for (const candidate of input.candidates) {
       insertCandidate.run({
         runId,
@@ -1223,6 +1301,21 @@ export function recordOpportunityDiscoveryRun(input: {
         triageReasons: JSON.stringify(candidate.triageReasons),
         discoveredAt: candidate.discoveredAt
       });
+      const candidateRow = selectCandidateId.get({ runId, normalizedUrl: candidate.normalizedUrl }) as { id: number } | undefined;
+      if (candidateRow) {
+        const sources = [candidate, ...candidate.alternateSources];
+        for (const source of sources) {
+          insertCandidateSource.run({
+            candidateId: candidateRow.id,
+            sourceName: source.sourceName,
+            sourceType: source.sourceType,
+            sourceUrl: source.sourceUrl || source.url,
+            discoveryQuery: source.discoveryQuery || "",
+            discoveryLanguage: source.discoveryLanguage || "",
+            discoveredAt: source.discoveredAt
+          });
+        }
+      }
       insertVerification.run({
         runId,
         candidateUrl: candidate.url,
@@ -1278,4 +1371,87 @@ export function readLatestSearchCoverageReport(): SearchCoverageReport | null {
   } catch {
     return null;
   }
+}
+
+export function readOpportunityFetchCache(normalizedUrl: string) {
+  const database = getDb();
+  const table = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='opportunity_fetch_cache'").get();
+  if (!table) return null;
+  const row = database.prepare(`
+    SELECT normalized_url, content_fingerprint, content_excerpt, status, fetched_at
+    FROM opportunity_fetch_cache
+    WHERE normalized_url = ?
+  `).get(normalizedUrl) as OpportunityFetchCacheRow | undefined;
+  if (!row) return null;
+  return {
+    normalizedUrl: row.normalized_url,
+    contentFingerprint: row.content_fingerprint,
+    contentExcerpt: row.content_excerpt,
+    status: row.status,
+    fetchedAt: row.fetched_at
+  };
+}
+
+export function recordOpportunityFetchCache(input: {
+  normalizedUrl: string;
+  contentFingerprint: string;
+  contentExcerpt: string;
+  status: string;
+}) {
+  getDb().prepare(`
+    INSERT INTO opportunity_fetch_cache (
+      normalized_url, content_fingerprint, content_excerpt, status, fetched_at
+    ) VALUES (
+      @normalizedUrl, @contentFingerprint, @contentExcerpt, @status, CURRENT_TIMESTAMP
+    )
+    ON CONFLICT(normalized_url) DO UPDATE SET
+      content_fingerprint = excluded.content_fingerprint,
+      content_excerpt = excluded.content_excerpt,
+      status = excluded.status,
+      fetched_at = CURRENT_TIMESTAMP
+  `).run(input);
+}
+
+export function readOpportunityQueryCache(provider: string, query: string) {
+  const database = getDb();
+  const table = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='opportunity_query_cache'").get();
+  if (!table) return null;
+  const row = database.prepare(`
+    SELECT provider, query, results_json, status, fetched_at
+    FROM opportunity_query_cache
+    WHERE provider = @provider AND query = @query
+  `).get({ provider, query }) as OpportunityQueryCacheRow | undefined;
+  if (!row) return null;
+  try {
+    return {
+      provider: row.provider,
+      query: row.query,
+      results: JSON.parse(row.results_json) as unknown[],
+      status: row.status,
+      fetchedAt: row.fetched_at
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function recordOpportunityQueryCache(input: {
+  provider: string;
+  query: string;
+  results: unknown[];
+  status: string;
+}) {
+  getDb().prepare(`
+    INSERT INTO opportunity_query_cache (provider, query, results_json, status, fetched_at)
+    VALUES (@provider, @query, @resultsJson, @status, CURRENT_TIMESTAMP)
+    ON CONFLICT(provider, query) DO UPDATE SET
+      results_json = excluded.results_json,
+      status = excluded.status,
+      fetched_at = CURRENT_TIMESTAMP
+  `).run({
+    provider: input.provider,
+    query: input.query,
+    resultsJson: JSON.stringify(input.results),
+    status: input.status
+  });
 }

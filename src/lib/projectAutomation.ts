@@ -12,6 +12,7 @@ import { buildPromptRules } from "./automationRules";
 import type { AutomationRunMode, Opportunity, OpportunityStatus } from "@/types/domain";
 
 const opportunityPromptTextLimit = readPositiveInt("ARTIST_STUDIO_OPPORTUNITY_PROMPT_TEXT_LIMIT", 12000);
+const applicationPreparationLimit = readPositiveInt("ARTIST_STUDIO_APPLICATION_PREPARATION_LIMIT", 5);
 
 type ProjectAutomationOptions = {
   phase?: "full" | "prepare-selected";
@@ -35,7 +36,7 @@ export async function runProjectAutomation(options: ProjectAutomationOptions = {
     applicationLimit: 20
   });
   const discovery = phase === "full"
-    ? await discoverOpportunityCandidates(initialData.profile, runMode)
+    ? await discoverOpportunityCandidates(initialData.profile, runMode, initialData.opportunities)
     : emptyDiscovery(runMode);
   const afterDiscoveryData = runMode === "real" && phase === "full" ? readArtistData({
     materialLimit: 80,
@@ -52,7 +53,7 @@ export async function runProjectAutomation(options: ProjectAutomationOptions = {
     : afterDiscoveryData.opportunities;
   const pageFetches = await refreshOpportunityPages(
     refreshTargets,
-    phase === "prepare-selected" ? afterDiscoveryData.profile.automationBatchLimit : discovery.plan.limits.verificationCandidateLimit,
+    phase === "prepare-selected" ? Math.min(afterDiscoveryData.profile.automationBatchLimit, applicationPreparationLimit) : discovery.plan.limits.verificationCandidateLimit,
     { persist: runMode === "real" }
   );
   const data = readArtistData({
@@ -337,6 +338,7 @@ function emptyDiscovery(runMode: AutomationRunMode): DiscoverySummary {
     discovered: [],
     candidatesForVerification: [],
     coverage: {
+      currentStage: "skipped",
       generatedQueries: 0,
       executedQueries: 0,
       queriesByLanguage: {},
@@ -345,6 +347,7 @@ function emptyDiscovery(runMode: AutomationRunMode): DiscoverySummary {
       providersAttempted: [],
       providersSucceeded: [],
       providersFailed: [],
+      candidatesBySource: {},
       discoveredCount: 0,
       normalizedCount: 0,
       deduplicatedCount: 0,
@@ -507,12 +510,14 @@ function renderReport(
     "## Search Coverage Report",
     [
       `Generated queries: ${discovery.coverage.generatedQueries}`,
+      `Current stage: ${discovery.coverage.currentStage}`,
       `Executed queries with results: ${discovery.coverage.executedQueries}`,
       `Discovered / normalized / deduped: ${discovery.coverage.discoveredCount} / ${discovery.coverage.normalizedCount} / ${discovery.coverage.deduplicatedCount}`,
       `Triaged keep / uncertain / rejected: ${discovery.coverage.triageKeepCount} / ${discovery.coverage.triageUncertainCount} / ${discovery.coverage.triageRejectedCount}`,
       `Verified / shortlisted: ${discovery.coverage.verifiedCount} / ${discovery.coverage.shortlistedCount}`,
       `Providers succeeded: ${discovery.coverage.providersSucceeded.join(", ") || "none"}`,
       `Providers failed/unavailable: ${discovery.coverage.providersFailed.map((item) => `${item.provider} (${item.reason})`).join(", ") || "none"}`,
+      `Candidates by source: ${Object.entries(discovery.coverage.candidatesBySource).map(([source, count]) => `${source}=${count}`).join(", ") || "none"}`,
       `Confidence: ${discovery.coverage.confidence}`,
       discovery.coverage.warnings.length ? `Warnings: ${discovery.coverage.warnings.join(" | ")}` : ""
     ].filter(Boolean).join("\n"),

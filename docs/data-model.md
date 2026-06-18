@@ -19,6 +19,7 @@
 - `opportunity_verifications`：候选核验字段、截止日期、费用、资格、材料、来源可信度、核验状态和解释性评分。
 - `opportunity_search_coverage_reports`：每轮搜索覆盖审计，包含查询、Provider、发现、去重、初筛、核验、推荐、未覆盖区域和警告。
 - `opportunity_fetch_cache`：页面抓取缓存和内容 fingerprint，用于减少重复抓取和支持变化检测。
+- `opportunity_query_cache`：Provider 查询结果缓存，用于减少重复搜索请求，并记录缓存状态和更新时间。
 
 ## Facts Versus Drafts
 

@@ -163,6 +163,7 @@ export type ShortlistedCandidate = ScoredCandidate & {
 };
 
 export type SearchCoverageReport = {
+  currentStage: "planned" | "discovering" | "normalizing" | "triaging" | "verifying" | "scoring" | "shortlisted" | "completed" | "skipped";
   generatedQueries: number;
   executedQueries: number;
   queriesByLanguage: Record<string, number>;
@@ -171,6 +172,7 @@ export type SearchCoverageReport = {
   providersAttempted: string[];
   providersSucceeded: string[];
   providersFailed: Array<{ provider: string; reason: string }>;
+  candidatesBySource: Record<string, number>;
   discoveredCount: number;
   normalizedCount: number;
   deduplicatedCount: number;

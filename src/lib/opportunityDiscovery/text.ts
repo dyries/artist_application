@@ -30,6 +30,7 @@ export function normalizeOpportunityUrl(url: string, baseUrl?: string) {
   const parsed = new URL(url, baseUrl);
   parsed.hash = "";
   parsed.hostname = parsed.hostname.toLowerCase();
+  if (parsed.protocol === "http:") parsed.protocol = "https:";
   if ((parsed.protocol === "https:" && parsed.port === "443") || (parsed.protocol === "http:" && parsed.port === "80")) {
     parsed.port = "";
   }
@@ -42,6 +43,21 @@ export function normalizeOpportunityUrl(url: string, baseUrl?: string) {
   parsed.pathname = parsed.pathname.replace(/\/{2,}/g, "/");
   if (parsed.pathname.length > 1) parsed.pathname = parsed.pathname.replace(/\/+$/, "");
   return parsed.toString();
+}
+
+export function opportunityUrlIdentity(url: string) {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname
+      .toLowerCase()
+      .replace(/\/(en|zh|cn|ja|jp|ko|kr)(?=\/|$)/g, "")
+      .replace(/\.(pdf|docx?|rtf|html?)$/g, "")
+      .replace(/\/(apply|application|applications|open-call|opportunities)$/g, "")
+      .replace(/\/+$/g, "");
+    return `${parsed.hostname.replace(/^www\./, "")}${path}`;
+  } catch {
+    return url.toLowerCase();
+  }
 }
 
 export function canonicalDomain(url: string) {
