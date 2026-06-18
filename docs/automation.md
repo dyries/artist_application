@@ -45,7 +45,27 @@ Codex 自动化应先读取这两个文件，再按需要检查原始材料。
 
 ## Global Opportunity Discovery
 
-项目内自动化会先读取配置的公开机会源，默认覆盖 ArtConnect、TransArtists、ResArtis、NYFA、CaFÉ、CuratorSpace、Artenda 和 Artquest 等来源页，抽取可能的 open call / residency / exhibition / grant 链接。真实运行会把候选链接写入机会库并标记为 `new`；test/mock 只写报告，不污染真实机会状态。
+项目内自动化现在按分阶段搜索管线运行：
+
+```text
+buildSearchProfile
+→ buildSearchPlan
+→ generateSearchQueries
+→ discoverCandidates
+→ normalizeCandidates
+→ deduplicateCandidates
+→ triageCandidates
+→ verifyCandidates
+→ scoreCandidates
+→ buildDiverseShortlist
+→ auditSearchCoverage
+```
+
+系统会用艺术家的媒介、主题、方法、地区偏好、费用接受度和机会等级偏好生成多语言查询，并通过可插拔 Provider 搜索。默认 Provider 包括策展机会平台和机构官网 registry；配置 `ARTIST_STUDIO_WEB_SEARCH_ENDPOINT` 或 `ARTIST_STUDIO_DISCOVERY_RSS_URLS` 后可以扩展 web search / RSS。Provider 未配置或失败会写入覆盖审计，不会伪装成已全面覆盖。
+
+发现、初筛、核验和最终推荐使用独立预算：查询数、单查询结果数、发现候选数、初筛数、核验数、最终 shortlist 数和制包数分开控制。`automationBatchLimit` 只控制已选机会的制包/深度处理数量，不再截断搜索发现或核验池。
+
+真实运行会把核验池写入机会库，约五个最终推荐标记为 `recommended`，其他保留为 `new` 候选。test/mock 只写报告，不污染真实机会状态。
 
 ## Review Nodes
 

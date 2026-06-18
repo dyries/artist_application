@@ -29,7 +29,9 @@ export const automationRuleText = {
   applicationRegion:
     "Use profile.applicationRegion as a search and ranking preference. worldwide means global search; other values prioritize opportunities in that region or explicitly online/no-location opportunities. Do not confuse application region with the artist's current location.",
   batchLimit:
-    "Use profile.automationBatchLimit as the maximum number of opportunities to deeply process or prepare in a run unless the user gives a newer instruction. The value may range from 1 to 100.",
+    "Use profile.automationBatchLimit only as the maximum number of selected opportunities to prepare or deeply process for application packages in a run unless the user gives a newer instruction. Discovery uses separate query, candidate, triage, verification, shortlist, and application-preparation limits so a five-item recommendation shortlist never means only five candidates were discovered or verified.",
+  opportunityDiscovery:
+    "Opportunity discovery must run as staged search: buildSearchProfile, buildSearchPlan, generateSearchQueries, discoverCandidates, normalizeCandidates, deduplicateCandidates, triageCandidates, verifyCandidates, scoreCandidates, buildDiverseShortlist, and auditSearchCoverage. Artist mediums, themes, methods, region, language, eligibility, fee preference, and tier preference must affect queries, providers, triage, scoring, and final recommendations. Provider failures or missing web/RSS configuration must be shown as coverage gaps, not hidden as complete search.",
   submissionApprovalMode:
     `review_required is the default and requires the final package approval node before submission. review_optional may prepare final files with fewer intermediate review artifacts when requirements are clear, but still requires explicit final submission approval. direct_apply is treated only as preparation pre-authorization for the current run up to the batch limit; final external submission still requires approval, and automation must stop for ${directApplyStopConditions.join(", ")}.`,
   opportunityFeePreference:
@@ -82,6 +84,7 @@ export function buildMachineApplicationPreferences(profile: ArtistProfile) {
     directApplyStopConditions,
     opportunityFeePreferenceRule: automationRuleText.opportunityFeePreference,
     opportunityTierPreferenceRule: automationRuleText.opportunityTierPreference,
+    opportunityDiscoveryRule: automationRuleText.opportunityDiscovery,
     opportunitySelectionRule: automationRuleText.opportunitySelection,
     reviewNodesRule: automationRuleText.reviewNodes,
     fileBoundaryRule: automationRuleText.fileBoundaries,
@@ -124,6 +127,8 @@ export function buildPromptRules(profile: ArtistProfile) {
     externalApiCanDraftButCodexAutomationCanStillVerifyHighRiskFacts: true,
     applicationRegionDefaultsToWorldwide: true,
     selectedApplicationRegionMustGuideSearchAndRanking: true,
+    opportunityDiscoveryMustUseStagedPipeline: true,
+    opportunitySearchCoverageReportRequired: true,
     maximumOpportunitiesPerRun: profile.automationBatchLimit,
     submissionApprovalMode: profile.submissionApprovalMode,
     opportunityFeePreference: profile.opportunityFeePreference,
@@ -155,6 +160,7 @@ Use this workspace as the source of truth for the artist application workflow. T
 - ${automationRuleText.applicantEligibility}
 - ${automationRuleText.applicationRegion}
 - ${automationRuleText.batchLimit}
+- ${automationRuleText.opportunityDiscovery}
 - ${automationRuleText.submissionApprovalMode}
 - ${automationRuleText.opportunityFeePreference}
 - ${automationRuleText.opportunityTierPreference}
@@ -172,7 +178,7 @@ Use this workspace as the source of truth for the artist application workflow. T
 
 ## Candidate Review
 
-For each candidate, verify source URL, deadline, organization, location, eligibility, fees, funding, required materials, submission method, and risks. State whether Chinese nationals, China-based artists, international applicants, or all nationalities are eligible. Break out application fees, booth/participation/program fees, lodging, studio, production costs, stipends, awards, travel, and other funding.
+For each candidate, verify source URL, deadline, organization, location, eligibility, fees, funding, required materials, submission method, and risks. State whether Chinese nationals, China-based artists, international applicants, or all nationalities are eligible. Break out application fees, booth/participation/program fees, lodging, studio, production costs, stipends, awards, travel, and other funding. Preserve search coverage reports so the user can distinguish discovered candidates, triaged candidates, verified opportunities, and final recommendations.
 
 ## Package Work
 

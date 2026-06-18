@@ -53,7 +53,10 @@
 ## Opportunity Screening
 
 - 每次搜索要尽量广：使用多组中英文关键词、多地区来源、机构官网、官方 open call 平台和艺术机会平台交叉搜索。
-- 每轮深度处理或制作申请包的数量必须遵守 `automationBatchLimit`，范围是 1-100；如果用户在对话里给出更新的数量，以最新指令为准。
+- 每轮已选机会的深度制包数量必须遵守 `automationBatchLimit`，范围是 1-100；如果用户在对话里给出更新的数量，以最新指令为准。机会发现、查询、初筛、核验和最终推荐必须使用独立的 discovery limits，不能再用 `automationBatchLimit` 同时限制候选发现和核验。
+- 机会搜索必须按 `buildSearchProfile → buildSearchPlan → generateSearchQueries → discoverCandidates → normalizeCandidates → deduplicateCandidates → triageCandidates → verifyCandidates → scoreCandidates → buildDiverseShortlist → auditSearchCoverage` 分阶段执行。
+- 艺术家媒介、主题、方法、地区偏好、语言、资格、费用偏好和机会等级偏好必须从搜索画像开始影响查询词、来源、初筛、评分和推荐组合。
+- 每轮搜索必须记录覆盖审计；外部 web search、RSS 或其他 Provider 未配置或失败时必须标注覆盖不足，不能声称全面搜索。
 - 申请地区可以在页面里选择，默认是全世界。自动化必须按这个地区偏好搜索和排序，不能把它和艺术家当前所在地混为一谈。
 - 费用接受度可以在页面里选择，默认是 `conservative`（保守：免费/强资助优先）。`application_fee_ok` 表示可接受少量申请费；`paid_ok` 表示付费展览/驻留也可以进入候选池，但必须完整标注费用、价值判断和风险，付款前仍必须暂停确认。
 - 机会等级偏好可以在页面里选择，默认是 `high_tier`（高等级优先）。`balanced` 表示高等级 + 可信中等级机会；`open` 表示也可以看小机构、新空间和实验项目，但必须明确标注可信度和风险。

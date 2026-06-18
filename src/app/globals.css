@@ -369,6 +369,37 @@ textarea {
   font-size: 13px;
 }
 
+.coverage-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfaf6;
+  padding: 14px;
+}
+
+.coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.coverage-grid div {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  min-width: 0;
+}
+
+.coverage-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.coverage-grid strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 20px;
+}
+
 .compact-list {
   margin: 0;
   padding-left: 20px;
@@ -682,6 +713,10 @@ textarea {
   }
 
   .material-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .coverage-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

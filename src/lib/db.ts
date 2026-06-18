@@ -17,6 +17,7 @@ import type {
   SubmissionMethod,
   Work
 } from "@/types/domain";
+import type { SearchCoverageReport, SearchQuery, ScoredCandidate, ShortlistedCandidate } from "./opportunityDiscovery";
 
 let db: Database.Database | null = null;
 
@@ -173,6 +174,13 @@ type PackageManifestRow = {
   status: string;
   created_at: string;
   updated_at: string;
+};
+
+type SearchCoverageReportRow = {
+  id: number;
+  search_run_id: number;
+  report_json: string;
+  created_at: string;
 };
 
 export function getDb() {
@@ -398,6 +406,132 @@ function migrate(database: Database.Database) {
     `);
   });
   addColumn(database, "package_manifests", "run_mode", "TEXT NOT NULL DEFAULT 'real'");
+
+  runMigration(database, 3, "opportunity discovery pipeline", () => {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS opportunity_search_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_mode TEXT NOT NULL DEFAULT 'real',
+        profile_json TEXT NOT NULL DEFAULT '{}',
+        limits_json TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL DEFAULT 'completed',
+        started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS opportunity_search_queries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        search_run_id INTEGER NOT NULL,
+        query TEXT NOT NULL,
+        language TEXT NOT NULL DEFAULT '',
+        region TEXT NOT NULL DEFAULT '',
+        opportunity_type TEXT NOT NULL DEFAULT '',
+        priority INTEGER NOT NULL DEFAULT 0,
+        generated_from TEXT NOT NULL DEFAULT '',
+        executed INTEGER NOT NULL DEFAULT 0,
+        provider TEXT NOT NULL DEFAULT '',
+        result_count INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(search_run_id) REFERENCES opportunity_search_runs(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS opportunity_sources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        source_type TEXT NOT NULL,
+        url TEXT NOT NULL DEFAULT '',
+        region TEXT NOT NULL DEFAULT '',
+        language TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'unknown',
+        last_error TEXT NOT NULL DEFAULT '',
+        last_checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS opportunity_candidates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        search_run_id INTEGER NOT NULL,
+        title TEXT NOT NULL DEFAULT '',
+        normalized_title TEXT NOT NULL DEFAULT '',
+        url TEXT NOT NULL,
+        canonical_url TEXT NOT NULL DEFAULT '',
+        normalized_url TEXT NOT NULL DEFAULT '',
+        official_source_url TEXT NOT NULL DEFAULT '',
+        is_official_source INTEGER NOT NULL DEFAULT 0,
+        source_name TEXT NOT NULL DEFAULT '',
+        source_type TEXT NOT NULL DEFAULT '',
+        discovery_query TEXT NOT NULL DEFAULT '',
+        discovery_language TEXT NOT NULL DEFAULT '',
+        content_fingerprint TEXT NOT NULL DEFAULT '',
+        duplicate_group_id TEXT NOT NULL DEFAULT '',
+        triage_status TEXT NOT NULL DEFAULT 'uncertain',
+        triage_reasons TEXT NOT NULL DEFAULT '[]',
+        first_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        discovered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(search_run_id, normalized_url)
+      );
+
+      CREATE TABLE IF NOT EXISTS opportunity_candidate_sources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        candidate_id INTEGER NOT NULL,
+        source_name TEXT NOT NULL DEFAULT '',
+        source_type TEXT NOT NULL DEFAULT '',
+        source_url TEXT NOT NULL DEFAULT '',
+        discovery_query TEXT NOT NULL DEFAULT '',
+        discovery_language TEXT NOT NULL DEFAULT '',
+        discovered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(candidate_id) REFERENCES opportunity_candidates(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS opportunity_verifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        search_run_id INTEGER NOT NULL,
+        candidate_url TEXT NOT NULL,
+        official_url TEXT NOT NULL DEFAULT '',
+        application_url TEXT NOT NULL DEFAULT '',
+        organization TEXT NOT NULL DEFAULT '',
+        opportunity_type TEXT NOT NULL DEFAULT '',
+        location TEXT NOT NULL DEFAULT '',
+        country TEXT NOT NULL DEFAULT '',
+        deadline TEXT NOT NULL DEFAULT '',
+        deadline_timezone TEXT NOT NULL DEFAULT '',
+        deadline_confidence TEXT NOT NULL DEFAULT 'unknown',
+        application_fee TEXT NOT NULL DEFAULT '',
+        currency TEXT NOT NULL DEFAULT '',
+        eligibility TEXT NOT NULL DEFAULT '',
+        required_materials TEXT NOT NULL DEFAULT '[]',
+        source_reliability INTEGER NOT NULL DEFAULT 0,
+        verification_status TEXT NOT NULL DEFAULT 'unverified',
+        score_total INTEGER NOT NULL DEFAULT 0,
+        score_json TEXT NOT NULL DEFAULT '{}',
+        verified_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(search_run_id) REFERENCES opportunity_search_runs(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS opportunity_search_coverage_reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        search_run_id INTEGER NOT NULL,
+        report_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(search_run_id) REFERENCES opportunity_search_runs(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS opportunity_fetch_cache (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        normalized_url TEXT NOT NULL UNIQUE,
+        content_fingerprint TEXT NOT NULL DEFAULT '',
+        content_excerpt TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'unknown',
+        fetched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_opportunity_search_queries_run ON opportunity_search_queries(search_run_id, priority DESC);
+      CREATE INDEX IF NOT EXISTS idx_opportunity_candidates_run ON opportunity_candidates(search_run_id, triage_status, last_seen_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_opportunity_candidates_dedupe ON opportunity_candidates(duplicate_group_id, canonical_url);
+      CREATE INDEX IF NOT EXISTS idx_opportunity_verifications_run ON opportunity_verifications(search_run_id, score_total DESC);
+      CREATE INDEX IF NOT EXISTS idx_opportunity_coverage_created ON opportunity_search_coverage_reports(created_at DESC, id DESC);
+    `);
+  });
 }
 
 function addColumn(database: Database.Database, table: string, column: string, definition: string) {
@@ -684,7 +818,8 @@ export function readArtistData(options: ReadArtistDataOptions = {}) {
       materialSources: countRows(database, "material_sources", "trim(title || content || file_name || file_path) <> ''"),
       opportunities: countRows(database, "opportunities"),
       applications: countRows(database, "applications")
-    }
+    },
+    searchCoverageReport: readLatestSearchCoverageReport()
   };
 }
 
@@ -1002,4 +1137,145 @@ export function readPackageManifests(limit = 100) {
     .prepare("SELECT * FROM package_manifests ORDER BY updated_at DESC, id DESC LIMIT ?")
     .all(positiveLimit(limit, 100, 1000))
     .map((row) => mapPackageManifest(row as PackageManifestRow));
+}
+
+export function recordOpportunityDiscoveryRun(input: {
+  runMode: AutomationRunMode;
+  profile: unknown;
+  limits: unknown;
+  queries: SearchQuery[];
+  candidates: ScoredCandidate[];
+  shortlist: ShortlistedCandidate[];
+  coverage: SearchCoverageReport;
+}) {
+  const database = getDb();
+  const tx = database.transaction(() => {
+    const run = database.prepare(`
+      INSERT INTO opportunity_search_runs (run_mode, profile_json, limits_json, status, completed_at)
+      VALUES (@runMode, @profileJson, @limitsJson, 'completed', CURRENT_TIMESTAMP)
+    `).run({
+      runMode: input.runMode,
+      profileJson: JSON.stringify(input.profile),
+      limitsJson: JSON.stringify(input.limits)
+    });
+    const runId = Number(run.lastInsertRowid);
+    const insertQuery = database.prepare(`
+      INSERT INTO opportunity_search_queries (
+        search_run_id, query, language, region, opportunity_type, priority, generated_from, executed, provider, result_count
+      ) VALUES (
+        @runId, @query, @language, @region, @opportunityType, @priority, @generatedFrom, @executed, @provider, @resultCount
+      )
+    `);
+    for (const query of input.queries) {
+      insertQuery.run({
+        runId,
+        query: query.query,
+        language: query.language,
+        region: query.region,
+        opportunityType: query.opportunityType,
+        priority: query.priority,
+        generatedFrom: query.generatedFrom.join(", "),
+        executed: 1,
+        provider: "",
+        resultCount: 0
+      });
+    }
+
+    const insertCandidate = database.prepare(`
+      INSERT OR IGNORE INTO opportunity_candidates (
+        search_run_id, title, normalized_title, url, canonical_url, normalized_url, official_source_url,
+        is_official_source, source_name, source_type, discovery_query, discovery_language, content_fingerprint,
+        duplicate_group_id, triage_status, triage_reasons, discovered_at, last_seen_at
+      ) VALUES (
+        @runId, @title, @normalizedTitle, @url, @canonicalUrl, @normalizedUrl, @officialSourceUrl,
+        @isOfficialSource, @sourceName, @sourceType, @discoveryQuery, @discoveryLanguage, @contentFingerprint,
+        @duplicateGroupId, @triageStatus, @triageReasons, @discoveredAt, CURRENT_TIMESTAMP
+      )
+    `);
+    const insertVerification = database.prepare(`
+      INSERT INTO opportunity_verifications (
+        search_run_id, candidate_url, official_url, application_url, organization, opportunity_type, location,
+        country, deadline, deadline_timezone, deadline_confidence, application_fee, currency, eligibility,
+        required_materials, source_reliability, verification_status, score_total, score_json, verified_at
+      ) VALUES (
+        @runId, @candidateUrl, @officialUrl, @applicationUrl, @organization, @opportunityType, @location,
+        @country, @deadline, @deadlineTimezone, @deadlineConfidence, @applicationFee, @currency, @eligibility,
+        @requiredMaterials, @sourceReliability, @verificationStatus, @scoreTotal, @scoreJson, @verifiedAt
+      )
+    `);
+    for (const candidate of input.candidates) {
+      insertCandidate.run({
+        runId,
+        title: candidate.title,
+        normalizedTitle: candidate.normalizedTitle,
+        url: candidate.url,
+        canonicalUrl: candidate.canonicalUrl,
+        normalizedUrl: candidate.normalizedUrl,
+        officialSourceUrl: candidate.officialSourceUrl || "",
+        isOfficialSource: candidate.isOfficialSource ? 1 : 0,
+        sourceName: candidate.sourceName,
+        sourceType: candidate.sourceType,
+        discoveryQuery: candidate.discoveryQuery || "",
+        discoveryLanguage: candidate.discoveryLanguage || "",
+        contentFingerprint: candidate.contentFingerprint,
+        duplicateGroupId: candidate.duplicateGroupId,
+        triageStatus: candidate.triageStatus,
+        triageReasons: JSON.stringify(candidate.triageReasons),
+        discoveredAt: candidate.discoveredAt
+      });
+      insertVerification.run({
+        runId,
+        candidateUrl: candidate.url,
+        officialUrl: candidate.officialUrl,
+        applicationUrl: candidate.applicationUrl || "",
+        organization: candidate.organization,
+        opportunityType: candidate.opportunityType,
+        location: candidate.location,
+        country: candidate.country,
+        deadline: candidate.deadline,
+        deadlineTimezone: candidate.deadlineTimezone,
+        deadlineConfidence: candidate.deadlineConfidence,
+        applicationFee: candidate.applicationFee,
+        currency: candidate.currency,
+        eligibility: candidate.eligibility,
+        requiredMaterials: JSON.stringify(candidate.requiredMaterials),
+        sourceReliability: candidate.sourceReliability,
+        verificationStatus: candidate.verificationStatus,
+        scoreTotal: candidate.scoreBreakdown.total,
+        scoreJson: JSON.stringify(candidate.scoreBreakdown),
+        verifiedAt: candidate.verifiedAt
+      });
+    }
+    database.prepare(`
+      INSERT INTO opportunity_search_coverage_reports (search_run_id, report_json)
+      VALUES (?, ?)
+    `).run(runId, JSON.stringify(input.coverage));
+    return runId;
+  });
+  const runId = tx();
+  logActivity({
+    action: "opportunity_discovery_run_recorded",
+    entityType: "opportunity_search_run",
+    entityId: runId,
+    summary: `Opportunity discovery run recorded with ${input.coverage.shortlistedCount} shortlisted recommendation(s).`,
+    metadata: input.coverage
+  });
+  return runId;
+}
+
+export function readLatestSearchCoverageReport(): SearchCoverageReport | null {
+  const database = getDb();
+  const table = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='opportunity_search_coverage_reports'").get();
+  if (!table) return null;
+  const row = database.prepare(`
+    SELECT * FROM opportunity_search_coverage_reports
+    ORDER BY created_at DESC, id DESC
+    LIMIT 1
+  `).get() as SearchCoverageReportRow | undefined;
+  if (!row) return null;
+  try {
+    return JSON.parse(row.report_json) as SearchCoverageReport;
+  } catch {
+    return null;
+  }
 }

@@ -259,6 +259,7 @@ export function OpportunitiesPanel({
   const shortlist = buildOpportunityShortlist(data.opportunities);
   const active = activeOpportunities(data.opportunities);
   const selectedReviewCount = shortlist.filter((opportunity) => selectedOpportunityIds.has(opportunity.id)).length;
+  const coverage = data.searchCoverageReport;
 
   return (
     <div className="panel stack">
@@ -273,6 +274,38 @@ export function OpportunitiesPanel({
           {busy === "add-opportunity" ? "添加中" : "添加机会链接"}
         </button>
       </div>
+      {coverage && (
+        <section className="coverage-panel stack">
+          <div className="section-heading">
+            <div>
+              <h3>搜索覆盖审计</h3>
+              <p className="muted">区分候选发现、低成本初筛、深度核验和最终推荐；未配置或失败的来源不会被当作已覆盖。</p>
+            </div>
+            <span className="badge">置信度：{coverage.confidence}</span>
+          </div>
+          <div className="coverage-grid">
+            <div><span>查询</span><strong>{coverage.generatedQueries}</strong></div>
+            <div><span>发现候选</span><strong>{coverage.discoveredCount}</strong></div>
+            <div><span>去重后</span><strong>{coverage.deduplicatedCount}</strong></div>
+            <div><span>初筛保留</span><strong>{coverage.triageKeepCount}</strong></div>
+            <div><span>正在/已核验</span><strong>{coverage.verifiedCount}</strong></div>
+            <div><span>最终推荐</span><strong>{coverage.shortlistedCount}</strong></div>
+          </div>
+          <div className="meta">
+            <span className="badge">来源：{coverage.providersSucceeded.join("、") || "无成功来源"}</span>
+            {coverage.budgetTruncated && <span className="badge">预算截断</span>}
+            {coverage.fixedSourceOnly && <span className="badge">仅固定来源</span>}
+          </div>
+          {coverage.providersFailed.length > 0 && (
+            <p className="notice warn">未覆盖来源：{coverage.providersFailed.map((item) => `${item.provider}：${item.reason}`).join("；")}</p>
+          )}
+          {coverage.warnings.length > 0 && (
+            <ul className="compact-list">
+              {coverage.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+            </ul>
+          )}
+        </section>
+      )}
       {data.opportunities.length === 0 && <p className="muted">Codex 自动化运行后，会先研究更大的候选池，排除过期和明确不符合资格的项目，再给你约 5 个最值得申请的机会。</p>}
       {shortlist.length > 0 && (
         <div className="notice">

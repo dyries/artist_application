@@ -75,7 +75,8 @@ export const initialData: StudioData = {
   materialSources: [],
   opportunities: [],
   applications: [],
-  counts: undefined
+  counts: undefined,
+  searchCoverageReport: null
 };
 
 export const materialKindMeta: { kind: MaterialKind; label: string; hint: string }[] = [

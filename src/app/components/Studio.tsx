@@ -156,8 +156,9 @@ export default function Studio() {
         `项目外部模型自动化已运行：${result.provider}/${result.model}`,
         `报告：${result.reportPath}`,
         `发现候选机会：${result.discoveredOpportunities?.length ?? 0} 个`,
+        result.coverage ? `搜索覆盖：发现 ${result.coverage.discoveredCount}，初筛保留 ${result.coverage.triageKeepCount}，核验 ${result.coverage.verifiedCount}，推荐 ${result.coverage.shortlistedCount}` : "",
         result.packagePaths.length ? `申请包：${result.packagePaths.join("、")}` : "本轮没有生成申请包。"
-      ].join("\n"));
+      ].filter(Boolean).join("\n"));
       setError("");
       setTab(result.packagePaths.length ? "submissions" : "settings");
     } catch (err) {

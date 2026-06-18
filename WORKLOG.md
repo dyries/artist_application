@@ -2753,3 +2753,79 @@ Known limitations:
 ### Next Steps
 
 - No further publishing cleanup is pending.
+
+## 2026-06-18 14:41 CST Opportunity discovery system refactor
+
+### Task Goal
+
+- Refactor the local project’s front-end opportunity search, discovery, triage, verification, scoring, recommendation, database audit, and UI coverage reporting flow according to `/Users/chenyu/Desktop/机会搜索系统重构目标.md`.
+
+### Files Changed
+
+- `src/lib/opportunityDiscovery/`
+- `src/lib/opportunitySearch.ts`
+- `src/lib/projectAutomation.ts`
+- `src/lib/db.ts`
+- `src/lib/automationRules.ts`
+- `src/app/components/Studio.tsx`
+- `src/app/components/StudioPanels.tsx`
+- `src/app/components/studioModel.ts`
+- `src/app/components/studioTypes.ts`
+- `src/app/globals.css`
+- `src/lib/opportunityDiscovery/providers/`
+- `scripts/opportunity-discovery.test.cjs`
+- `package.json`
+- `docs/rules.md`
+- `docs/automation.md`
+- `docs/data-model.md`
+- `WORKLOG.md`
+
+### What Changed
+
+- Added staged opportunity discovery modules for search profile, search plan, multilingual queries, provider discovery, normalization, dedupe, triage, verification, scoring, diverse shortlist, and coverage audit.
+- Added curated-board, institution-site, configurable web-search, and RSS provider adapters with explicit unavailable-provider reporting.
+- Split opportunity discovery limits from `automationBatchLimit`; discovery, triage, verification, shortlist, and application preparation now have independent budgets.
+- Added safe additive migration tables for search runs, queries, sources, candidates, candidate-source relations, verifications, coverage reports, and fetch cache.
+- Updated automation to persist a larger verification pool while only marking the diverse final shortlist as `recommended`.
+- Updated opportunity page refresh to use verification budget during discovery runs instead of the final application batch limit.
+- Added opportunity coverage reporting to the app UI, including candidate counts, provider success/failure, budget truncation, fixed-source-only warnings, and confidence.
+- Added a focused discovery test harness covering profile extraction, multilingual queries, query dedupe, budgets, URL normalization, UTM removal, canonical URL storage, multi-source dedupe, expired/ineligible triage, unknown deadlines, provider degradation, verification pool size, diversity, coverage, migration presence, cache table, and dynamic-page hooks.
+- Updated shared automation rules and docs to describe the staged discovery pipeline and new data model.
+
+### Why It Changed
+
+- The old implementation relied on a small fixed list of opportunity boards, static anchor extraction, fixed English keywords, URL-only dedupe, and early candidate truncation.
+- Artist profile details now affect search strategy from the start instead of only appearing in summaries or final ranking.
+- Users need to see whether a run discovered, triaged, verified, and recommended opportunities, and whether provider coverage was incomplete.
+- The database needed durable audit records for discovery runs without destroying or rewriting existing local data.
+
+### Tests/Checks Run
+
+- `git status --short --branch`
+- Required audit printed to terminal before implementation.
+- `npm run test:opportunity-discovery`
+- `npm run test:structure`
+- `npm run typecheck`
+- `npm run lint`
+- `npm run build`
+- Playwright visual smoke check via local dev server at `http://localhost:3010`
+
+### Result
+
+- Passed: opportunity discovery focused tests.
+- Passed: project structure verification.
+- Passed: TypeScript typecheck.
+- Passed: ESLint.
+- Passed: Next.js production build.
+- Passed: desktop/mobile Playwright smoke check showed no horizontal overflow; the coverage panel was absent only because the local database has not run a new discovery after this refactor.
+
+### Issues Found
+
+- Initial focused test run failed because Node’s built-in TypeScript stripping did not resolve extensionless local TS imports; replaced it with a local TypeScript transpile hook.
+- The first diversity test exposed fallback shortlist fill allowing one-source dominance; tightened `buildDiverseShortlist`.
+- Playwright CLI wrapper could not run because its isolated `chrome-for-testing` browser was not installed; direct project Playwright verification succeeded using the repo-installed browser.
+
+### Next Steps
+
+- Configure `ARTIST_STUDIO_WEB_SEARCH_ENDPOINT` or RSS URLs for broader live web/RSS coverage; without them, the UI will correctly report fixed-source-only limited coverage.
+- Run a real discovery pass from the app to populate the new coverage report tables and display the coverage panel with live counts.

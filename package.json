@@ -9,8 +9,9 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:structure": "node scripts/verify-project.mjs",
+    "test:opportunity-discovery": "node scripts/opportunity-discovery.test.cjs",
     "check:worklog": "node scripts/check-worklog-updated.mjs",
-    "check": "npm run lint && npm run typecheck && npm run test:structure && npm run build",
+    "check": "npm run lint && npm run typecheck && npm run test:structure && npm run test:opportunity-discovery && npm run build",
     "backup": "node scripts/backup-workspace.mjs"
   },
   "dependencies": {

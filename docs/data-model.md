@@ -11,6 +11,14 @@
 - `schema_migrations`：数据库迁移版本记录。
 - `activity_log`：重要操作日志。
 - `package_manifests`：申请包 manifest 索引。
+- `opportunity_search_runs`：每次机会搜索运行、run mode、搜索画像和 limits。
+- `opportunity_search_queries`：本轮生成的查询词、语言、地区、机会类型、优先级和执行记录。
+- `opportunity_sources`：可插拔搜索来源、来源类型、地区、语言、最近状态和错误。
+- `opportunity_candidates`：规范化后的候选链接、canonical URL、标题、来源、发现查询、fingerprint、重复组和初筛状态。
+- `opportunity_candidate_sources`：同一候选的多个发现路径和转载/官方来源关系。
+- `opportunity_verifications`：候选核验字段、截止日期、费用、资格、材料、来源可信度、核验状态和解释性评分。
+- `opportunity_search_coverage_reports`：每轮搜索覆盖审计，包含查询、Provider、发现、去重、初筛、核验、推荐、未覆盖区域和警告。
+- `opportunity_fetch_cache`：页面抓取缓存和内容 fingerprint，用于减少重复抓取和支持变化检测。
 
 ## Facts Versus Drafts
 

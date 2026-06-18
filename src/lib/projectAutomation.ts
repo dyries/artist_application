@@ -52,7 +52,7 @@ export async function runProjectAutomation(options: ProjectAutomationOptions = {
     : afterDiscoveryData.opportunities;
   const pageFetches = await refreshOpportunityPages(
     refreshTargets,
-    afterDiscoveryData.profile.automationBatchLimit,
+    phase === "prepare-selected" ? afterDiscoveryData.profile.automationBatchLimit : discovery.plan.limits.verificationCandidateLimit,
     { persist: runMode === "real" }
   );
   const data = readArtistData({
@@ -171,6 +171,7 @@ export async function runProjectAutomation(options: ProjectAutomationOptions = {
     reportPath,
     packagePaths,
     discoveredOpportunities: discovery.discovered,
+    coverage: discovery.coverage,
     data: readArtistData()
   };
 }
@@ -330,7 +331,73 @@ function buildAutomationPrompt(data: ReturnType<typeof readArtistData>, runMode:
 }
 
 function emptyDiscovery(runMode: AutomationRunMode): DiscoverySummary {
-  return { sourceUrls: [], results: [], discovered: [], runMode };
+  return {
+    sourceUrls: [],
+    results: [],
+    discovered: [],
+    candidatesForVerification: [],
+    coverage: {
+      generatedQueries: 0,
+      executedQueries: 0,
+      queriesByLanguage: {},
+      queriesByRegion: {},
+      queriesByOpportunityType: {},
+      providersAttempted: [],
+      providersSucceeded: [],
+      providersFailed: [],
+      discoveredCount: 0,
+      normalizedCount: 0,
+      deduplicatedCount: 0,
+      triagedCount: 0,
+      triageKeepCount: 0,
+      triageRejectedCount: 0,
+      triageUncertainCount: 0,
+      verifiedCount: 0,
+      shortlistedCount: 0,
+      uncoveredRegions: [],
+      uncoveredOpportunityTypes: [],
+      unexecutedLanguages: [],
+      budgetTruncated: false,
+      fixedSourceOnly: false,
+      confidence: "low",
+      warnings: ["Discovery skipped during selected-opportunity package preparation."]
+    },
+    plan: {
+      profile: {
+        artistName: "",
+        mediums: [],
+        themes: [],
+        methods: [],
+        opportunityTypes: [],
+        preferredRegions: [],
+        excludedRegions: [],
+        searchLanguages: [],
+        eligibility: {},
+        fundingPreferences: {},
+        tierPreference: "high_tier",
+        positiveKeywords: [],
+        negativeKeywords: [],
+        unknownFields: []
+      },
+      limits: {
+        maxQueriesPerRun: 0,
+        maxResultsPerQuery: 0,
+        discoveryCandidateLimit: 0,
+        triageCandidateLimit: 0,
+        verificationCandidateLimit: 0,
+        shortlistLimit: 0,
+        applicationPreparationLimit: 0
+      },
+      sourceTypes: [],
+      targetRegions: [],
+      targetLanguages: [],
+      targetOpportunityTypes: [],
+      institutionTypes: [],
+      queryBudgetWarnings: []
+    },
+    queries: [],
+    runMode
+  };
 }
 
 function markSelectedOpportunitiesPreparing(opportunities: Opportunity[]) {
@@ -434,11 +501,26 @@ function renderReport(
     "",
     "## Global Opportunity Discovery",
     discovery.discovered.length
-      ? discovery.discovered.map((item) => `- ${item.title}: ${item.url} (source: ${item.sourceUrl})`).join("\n")
+      ? discovery.discovered.map((item) => `- ${item.title}: ${item.url} (source: ${item.sourceName}; score: ${item.scoreBreakdown.total})`).join("\n")
       : "No opportunity links discovered from configured public sources in this run.",
     "",
+    "## Search Coverage Report",
+    [
+      `Generated queries: ${discovery.coverage.generatedQueries}`,
+      `Executed queries with results: ${discovery.coverage.executedQueries}`,
+      `Discovered / normalized / deduped: ${discovery.coverage.discoveredCount} / ${discovery.coverage.normalizedCount} / ${discovery.coverage.deduplicatedCount}`,
+      `Triaged keep / uncertain / rejected: ${discovery.coverage.triageKeepCount} / ${discovery.coverage.triageUncertainCount} / ${discovery.coverage.triageRejectedCount}`,
+      `Verified / shortlisted: ${discovery.coverage.verifiedCount} / ${discovery.coverage.shortlistedCount}`,
+      `Providers succeeded: ${discovery.coverage.providersSucceeded.join(", ") || "none"}`,
+      `Providers failed/unavailable: ${discovery.coverage.providersFailed.map((item) => `${item.provider} (${item.reason})`).join(", ") || "none"}`,
+      `Confidence: ${discovery.coverage.confidence}`,
+      discovery.coverage.warnings.length ? `Warnings: ${discovery.coverage.warnings.join(" | ")}` : ""
+    ].filter(Boolean).join("\n"),
+    "",
     "## Discovery Sources",
-    discovery.results.map((item) => `- ${item.ok ? "OK" : "FAILED"} ${item.sourceUrl}${item.error ? ` (${item.error})` : ""}: ${item.discovered.length} links`).join("\n"),
+    discovery.results.length
+      ? discovery.results.map((item) => `- ${item.ok ? "OK" : "FAILED"} ${item.provider}${item.error ? ` (${item.error})` : ""}: ${item.results.length} links`).join("\n")
+      : "No discovery providers were run in this phase.",
     "",
     "## Verified Opportunities",
     asListText(parsed.verifiedOpportunities),

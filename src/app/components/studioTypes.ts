@@ -1,4 +1,5 @@
 import type { ArtistProfile, Application, CvEntry, Opportunity, SourceMaterial, Work } from "@/types/domain";
+import type { SearchCoverageReport } from "@/lib/opportunityDiscovery";
 
 export type StudioData = {
   profile: ArtistProfile;
@@ -14,6 +15,7 @@ export type StudioData = {
     opportunities: number;
     applications: number;
   };
+  searchCoverageReport?: SearchCoverageReport | null;
 };
 
 export type CodexContextResult = {
@@ -27,7 +29,8 @@ export type ProjectAutomationResult = {
   phase?: "full" | "prepare-selected";
   reportPath: string;
   packagePaths: string[];
-  discoveredOpportunities?: { title: string; url: string; sourceUrl: string }[];
+  discoveredOpportunities?: { title: string; url: string; sourceName?: string; sourceUrl?: string }[];
+  coverage?: SearchCoverageReport;
   data: StudioData;
 };
 
